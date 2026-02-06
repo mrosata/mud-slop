@@ -72,11 +72,14 @@ class MudUI:
             self.help_tracker = HelpTracker()
 
         self._skip_next_blank = False
+        self._skip_blank_after_speech = False
         self._incomplete_line = ""  # Buffer for incomplete lines (no trailing \n)
 
         # Scroll state: 0 = pinned to bottom (auto-scroll), >0 = lines from bottom
         self._output_scroll = 0
         self._output_h = 1  # last known output panel height (updated during draw)
+        # When True, show full output_lines even at scroll=0 (first step before scrolling)
+        self._show_full_history = False
 
         self.status = "F1 help | Ctrl+C quit | /clear, /quit"
         self._help_mode = False
@@ -122,9 +125,16 @@ class MudUI:
     def _add_to_display(self, plain: str, line: str):
         """Route a single line through speech detection into display_lines."""
         if self._is_other_speech(plain) and self.conversation.feed_line(plain, line):
-            pass  # Speech line consumed
+            # Speech line consumed - remove preceding blank and skip following blanks
+            if self.display_lines and strip_ansi(self.display_lines[-1]).strip() == "":
+                self.display_lines.pop()
+            self._skip_blank_after_speech = True
+        elif self._skip_blank_after_speech and plain.strip() == "":
+            # Swallow blank lines after speech
+            pass
         else:
             self._skip_next_blank = False
+            self._skip_blank_after_speech = False
             self.display_lines.append(line)
 
     def add_output_text(self, text: str):
@@ -156,10 +166,15 @@ class MudUI:
                 self.info_tracker.add(plain, line)
                 self._skip_next_blank = True
                 # INFO lines are filtered from display_lines
+                # Also remove preceding blank line if present
+                if self.display_lines and strip_ansi(self.display_lines[-1]).strip() == "":
+                    self.display_lines.pop()
             elif self._skip_next_blank and plain.strip() == "":
-                self._skip_next_blank = False
-                # Swallow the blank line that follows an INFO message
+                # Swallow blank lines that follow an INFO message (keep skipping until content)
+                pass
             else:
+                # Reset the skip flag when we see actual content
+                self._skip_next_blank = False
                 # Help detection - check for {help}/{/help} tags
                 help_consumed, _ = self.help_tracker.feed_line(plain, line)
                 if help_consumed:
@@ -218,7 +233,7 @@ class MudUI:
         # Right side panel: stats on top, map below (if both present)
         # Or just one if only one is present
         show_stats = self._has_stats()
-        show_map = self._has_map() and not self.conversation.visible
+        show_map = self._has_map()
 
         # Determine right panel width: 30% of screen, capped at max
         right_panel_w = 0
@@ -343,6 +358,14 @@ class MudUI:
             return
         win.erase()
         h, w = win.getmaxyx()
+
+        # Draw left border (vertical line)
+        for r in range(h):
+            try:
+                win.addch(r, 0, curses.ACS_VLINE)
+            except curses.error:
+                pass
+
         row = 0
 
         # Color pairs for bars: red=1, green=2, blue=4
@@ -961,9 +984,9 @@ class MudUI:
         # Track panel heights for scroll page size
         self._output_h = out_win.getmaxyx()[0]
 
-        # Dual-view: when at scroll=0 show filtered display_lines,
-        # when scrolled show full output_lines (including speech)
-        if self._output_scroll == 0:
+        # Dual-view: when at scroll=0 and not in full history mode, show filtered
+        # display_lines. When scrolled or in full history mode, show output_lines.
+        if self._output_scroll == 0 and not self._show_full_history:
             view_lines = self.display_lines
             view_state_key = "display"
         else:
@@ -1030,6 +1053,8 @@ class MudUI:
             status_text += f" | CONV {self.conversation.queue_status}"
         if self._output_scroll > 0:
             status_text += f" | SCROLL +{self._output_scroll}"
+        elif self._show_full_history:
+            status_text += " | HISTORY"
         try:
             status_win.addnstr(0, 0, status_text, status_win.getmaxyx()[1] - 1)
         except curses.error:
@@ -1117,19 +1142,31 @@ class MudUI:
         status_win.noutrefresh()
 
     def _scroll_up(self):
+        # First scroll up from filtered view: switch to full history at bottom
+        if self._output_scroll == 0 and not self._show_full_history:
+            self._show_full_history = True
+            return
+        # Already in full history mode: actually scroll up
         page = max(1, self._output_h - 1)
         max_off = max(0, len(self.output_lines) - self._output_h)
         self._output_scroll = min(self._output_scroll + page, max_off)
 
     def _scroll_down(self):
+        # If at bottom of full history view, switch back to filtered view
+        if self._output_scroll == 0 and self._show_full_history:
+            self._show_full_history = False
+            return
+        # Otherwise scroll down
         page = max(1, self._output_h - 1)
         self._output_scroll = max(0, self._output_scroll - page)
 
     def _scroll_to_top(self):
+        self._show_full_history = True
         self._output_scroll = max(0, len(self.output_lines) - self._output_h)
 
     def _scroll_to_bottom(self):
         self._output_scroll = 0
+        self._show_full_history = False
 
     def handle_key(self, ch: int):
         # Returns (line_to_send or None, quit_bool)
@@ -1308,6 +1345,9 @@ class MudUI:
         self.display_lines = []
         self._incomplete_line = ""
         self._output_scroll = 0
+        self._show_full_history = False
+        self._skip_next_blank = False
+        self._skip_blank_after_speech = False
         self.conversation.dismiss()
         self.info_tracker.current = None
         self.info_tracker._queue.clear()
