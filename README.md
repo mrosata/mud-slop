@@ -233,3 +233,23 @@ The project has zero runtime dependencies. See `CLAUDE.md` for detailed architec
 # Run tests
 uv run python -m pytest tests/ -v
 ```
+
+### Releasing
+
+Releases are fully automated via [Release Please](https://github.com/googleapis/release-please) and GitHub Actions. The process is:
+
+1. **Use [Conventional Commits](https://www.conventionalcommits.org/)** in your commit messages:
+   - `fix: <description>` — triggers a **patch** bump (e.g. 0.1.2 → 0.1.3)
+   - `feat: <description>` — triggers a **minor** bump (e.g. 0.1.3 → 0.2.0)
+   - `feat!: <description>` or a `BREAKING CHANGE:` footer — triggers a **minor** bump while pre-1.0
+
+   Commits that don't follow this format (e.g. `chore:`, `docs:`, or no prefix) are ignored by Release Please and won't trigger a release.
+
+2. **Merge to `main`** — on every push to `main`, Release Please analyzes new commits and opens (or updates) a release PR with a version bump and generated changelog.
+
+3. **Merge the release PR** — this triggers the publish pipeline:
+   - Builds the package with `python -m build`
+   - Publishes to [PyPI](https://pypi.org/p/mud-slop) via trusted publishing
+   - Uploads dist artifacts to the GitHub Release
+
+**Important:** When merging PRs via GitHub, use **"Squash and merge"** and ensure the squash commit message follows conventional commits format (e.g. `fix: profile not loading when installed from PyPI`). GitHub defaults to using the branch name, which Release Please can't parse.
