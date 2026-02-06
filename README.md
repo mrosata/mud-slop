@@ -13,7 +13,7 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 - **Map pane** — ASCII maps are extracted using `<MAPSTART>`/`<MAPEND>` tags, room descriptions via `{rdesc}`/`{/rdesc}` tags, and rendered in a fixed panel on the right side of the screen showing room name, coords, map, exits, and word-wrapped description
 - **Help pager** — help content wrapped in `{help}`/`{/help}` tags is displayed in a scrollable overlay with paging controls (PgUp/PgDn/Home/End/ESC), allowing users to read help while still typing commands
 - **Debug logging** — writes output, protocol, and GMCP streams to log files
-- **Scrollback** — Page Up/Down to scroll through history; full unfiltered history available when scrolled up
+- **Scrollback** — Page Up/Down to scroll through history; configurable content visibility when scrolled up (conversations shown by default, help/maps/info hidden; toggle with `/history`)
 - **Command history** — Up/Down arrows with prefix filtering
 - **Line editing** — Left/Right arrows, Ctrl+A/E (home/end), Ctrl+Left/Right (word jump), Ctrl+W/U/K (kill word/to-start/to-end), Delete key
 - **Password masking** — input is hidden when the server signals password mode (via telnet WILL ECHO)
@@ -55,9 +55,9 @@ uv run mud-slop <host> <port>
 
 | Flag | Description |
 |---|---|
-| `-c`, `--config` | Configuration name (loads `configs/<name>.yml`, default: `default`) |
-| `-p`, `--profile` | Login profile name (loads `profiles/<name>.yml` for auto-login) |
-| `--create-profile NAME` | Create a login profile interactively and exit |
+| `-c`, `--config` | Configuration name or path (see [Configuration](#configuration)) |
+| `-p`, `--profile` | Login profile name or path (see [Profiles](#profiles)) |
+| `--create-profile NAME` | Create a login profile interactively (saves to `~/.mud-slop/profiles/`) |
 | `--no-color` | Disable ANSI color rendering |
 | `-d`, `--debug` | Enable debug logging to `mud_*.log` files |
 | `--conv-pos {top-left\|top-center\|...\|bottom-right}` | Conversation overlay position (default: `bottom-right`) |
@@ -86,7 +86,14 @@ uv run mud-slop -c aardwolf localhost 5000
 
 ### Configuration
 
-Configuration files are stored in the `configs/` directory as YAML files. Use `-c <name>` to load `configs/<name>.yml`. CLI arguments override config values.
+Configuration files are YAML files loaded via `-c <name>` or `-c <path>`. CLI arguments override config values.
+
+**Search order for config names:**
+1. `~/.mud-slop/configs/<name>.yml` (user configs)
+2. `./configs/<name>.yml` (current directory)
+3. Package `configs/` directory (bundled configs)
+
+You can also pass a full path: `-c ~/my-configs/custom.yml`
 
 Example config structure (`configs/aardwolf.yml`):
 
@@ -115,6 +122,9 @@ timers:
 ui:
   right_panel_max_width: 70
   max_output_lines: 5000
+  history:
+    conversations: true
+    help: false
 
 hooks:
   # Commands to run after login (when GMCP vitals first arrive)
@@ -130,18 +140,25 @@ See `configs/default.yml` for the complete schema with all options.
 
 ### Profiles
 
-Login profiles are stored in the `profiles/` directory as YAML files. Profile files are **gitignored** to prevent committing credentials.
+Login profiles store credentials for auto-login. Profile files are **gitignored** to prevent committing secrets.
 
-Create a profile interactively (password input is hidden):
+**Search order for profile names:**
+1. `~/.mud-slop/profiles/<name>.yml` (user profiles)
+2. `./profiles/<name>.yml` (current directory)
+3. Package `profiles/` directory
+
+You can also pass a full path: `-p ~/my-profiles/mychar.yml`
+
+Create a profile interactively (password input is hidden, saves to `~/.mud-slop/profiles/`):
 
 ```bash
-uv run mud-slop --create-profile mychar
+mud-slop --create-profile mychar
 ```
 
 Then use it to auto-login:
 
 ```bash
-uv run mud-slop -c aardwolf -p mychar
+mud-slop -c aardwolf -p mychar
 ```
 
 The client sends the username after the server's initial prompt and sends the password when the server enters password mode (telnet WILL ECHO). See `profiles/README.md` for details.
@@ -154,6 +171,8 @@ The client sends the username after the server's initial prompt and sends the pa
 | `/clear` | Clear output pane (and conversation, map, ticker) |
 | `/debug` | Toggle debug logging on/off at runtime |
 | `/info` | Show timestamped info message history |
+| `/history` | Show history visibility settings |
+| `/history <type> [on\|off]` | Toggle what shows when scrolled up (types: conversations, help, maps, info) |
 
 Everything else typed at the prompt is sent to the server.
 
@@ -191,7 +210,7 @@ The UI has up to five regions:
 - **Info ticker** — single-row bar above the input line showing `INFO:` channel messages
 - **Input line** — command entry with `> ` prompt
 
-The conversation overlay draws on top of the output pane. The map pane is a fixed panel on the right side of the screen (below the stats pane if both are present), and is hidden while the conversation overlay is visible. Scrolling up reveals the full unfiltered history including speech, info, and map lines.
+The conversation overlay draws on top of the output pane. The map pane is a fixed panel on the right side of the screen (below the stats pane if both are present), and is hidden while the conversation overlay is visible. Scrolling up reveals history with configurable content visibility — by default only conversation lines are included. Use `/history` to toggle what appears (conversations, help, maps, info).
 
 Debug logging (`-d` or `/debug`) writes to `mud_output.log`, `mud_proto.log`, and `mud_gmcp.log` in the current directory.
 

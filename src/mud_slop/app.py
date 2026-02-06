@@ -8,6 +8,47 @@ from mud_slop.ui import MudUI
 from mud_slop.connection import MudConnection
 
 
+_HISTORY_TYPES = {
+    "conversations": "history_show_conversations",
+    "conversation": "history_show_conversations",
+    "conv": "history_show_conversations",
+    "help": "history_show_help",
+    "maps": "history_show_maps",
+    "map": "history_show_maps",
+    "info": "history_show_info",
+}
+
+
+def _handle_history_cmd(ui: "MudUI", line: str):
+    """Handle /history command for viewing/toggling history visibility."""
+    parts = line.split()
+    # /history — show current settings
+    if len(parts) == 1:
+        ui.add_system_message(f"History visibility: {ui.history_settings_text()}")
+        return
+    type_name = parts[1].lower()
+    attr = _HISTORY_TYPES.get(type_name)
+    if attr is None:
+        valid = "conversations, help, maps, info"
+        ui.add_system_message(f"Unknown type '{parts[1]}'. Valid: {valid}")
+        return
+    # /history <type> on|off — explicit set
+    if len(parts) >= 3:
+        val = parts[2].lower()
+        if val in ("on", "true", "yes", "1"):
+            setattr(ui, attr, True)
+        elif val in ("off", "false", "no", "0"):
+            setattr(ui, attr, False)
+        else:
+            ui.add_system_message(f"Invalid value '{parts[2]}'. Use on/off.")
+            return
+    else:
+        # /history <type> — toggle
+        setattr(ui, attr, not getattr(ui, attr))
+    state = "ON" if getattr(ui, attr) else "OFF"
+    ui.add_system_message(f"History {type_name}: {state} (affects new lines)")
+
+
 def run_client(stdscr, config: Config, color: bool = True,
                debug: bool = False, conv_pos: str = "bottom-right"):
     proto_q: "queue.Queue[ProtoEvent]" = queue.Queue()
@@ -52,7 +93,7 @@ def run_client(stdscr, config: Config, color: bool = True,
             # Sync password mode state from connection to UI
             ui.echo_off = conn.echo_off
 
-            # Drain queues
+            # Drain protocol queue
             while True:
                 try:
                     ev = proto_q.get_nowait()
@@ -60,14 +101,7 @@ def run_client(stdscr, config: Config, color: bool = True,
                     break
                 logger.log_proto(ev)
 
-            while True:
-                try:
-                    t = text_q.get_nowait()
-                except queue.Empty:
-                    break
-                ui.add_output_text(t)
-                logger.log_output(t)
-
+            # Drain GMCP queue FIRST - so vitals are available before text processing
             while True:
                 try:
                     ts, payload = gmcp_q.get_nowait()
@@ -75,6 +109,26 @@ def run_client(stdscr, config: Config, color: bool = True,
                     break
                 pkg, data = gmcp_handler.handle(ts, payload)
                 logger.log_gmcp(pkg, data)
+
+            # After login (GMCP vitals arrive): enable map detection and run
+            # post-login hook commands from config. Must happen BEFORE text
+            # processing so the initial room map is filtered.
+            if (not ui.map_tracker.sent_initial
+                    and not ui.map_tracker.map_lines
+                    and gmcp_handler.vitals):
+                ui.map_tracker.enabled = True
+                for cmd in config.hooks.post_login:
+                    conn.send_line(cmd)
+                ui.map_tracker.sent_initial = True
+
+            # Drain text queue AFTER map tracker is enabled
+            while True:
+                try:
+                    t = text_q.get_nowait()
+                except queue.Empty:
+                    break
+                ui.add_output_text(t)
+                logger.log_output(t)
 
             # Auto-login: send username after first server text,
             # send password when echo_off (password mode) activates.
@@ -86,16 +140,6 @@ def run_client(stdscr, config: Config, color: bool = True,
                 conn.send_line(profile_password)
                 login_sent_password = True
             prev_echo_off = conn.echo_off
-
-            # After login (GMCP vitals arrive): enable map detection and run
-            # post-login hook commands from config.
-            if (not ui.map_tracker.sent_initial
-                    and not ui.map_tracker.map_lines
-                    and gmcp_handler.vitals):
-                ui.map_tracker.enabled = True
-                for cmd in config.hooks.post_login:
-                    conn.send_line(cmd)
-                ui.map_tracker.sent_initial = True
 
             # Tick timers
             now = time.time()
@@ -125,6 +169,8 @@ def run_client(stdscr, config: Config, color: bool = True,
                     ui.clear()
                 elif line.strip().lower() == "/info":
                     ui.show_info_history()
+                elif line.strip().lower().startswith("/history"):
+                    _handle_history_cmd(ui, line.strip())
                 else:
                     conn.send_line(line)
                     if not conn.echo_off:

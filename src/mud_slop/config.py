@@ -401,11 +401,21 @@ class TimersConfig:
 
 
 @dataclass
+class HistoryConfig:
+    """What content types to show when scrolling up into history mode."""
+    conversations: bool = True
+    help: bool = False
+    maps: bool = False
+    info: bool = False
+
+
+@dataclass
 class UIConfig:
     """UI layout configuration."""
     right_panel_max_width: int = 70
     right_panel_ratio: float = 0.40
     max_output_lines: int = 5000
+    history: HistoryConfig = field(default_factory=HistoryConfig)
 
 
 @dataclass
@@ -436,44 +446,100 @@ class Config:
 
 # --- Config Loading ---
 
-def _find_configs_dir() -> Path:
-    """Find the configs directory relative to the package or CWD."""
-    # Try package directory first
+def _get_user_data_dir() -> Path:
+    """Get the user's mud-slop data directory ($HOME/.mud-slop)."""
+    return Path.home() / ".mud-slop"
+
+
+def _find_config_file(config_name_or_path: str) -> Path | None:
+    """Find a config file by name or path.
+
+    Search order:
+    1. If it looks like a path (contains / or \\ or ends in .yml), treat as path
+    2. $HOME/.mud-slop/configs/<name>.yml
+    3. Current working directory configs/<name>.yml
+    4. Package directory configs/<name>.yml (for development)
+
+    Args:
+        config_name_or_path: Config name (without .yml) or path to config file.
+
+    Returns:
+        Path to the config file if found, None otherwise.
+    """
+    # Check if it's a path (contains path separator or ends in .yml)
+    if '/' in config_name_or_path or '\\' in config_name_or_path or config_name_or_path.endswith('.yml'):
+        path = Path(config_name_or_path).expanduser()
+        if path.is_file():
+            return path
+        return None
+
+    # It's a config name - search in order of priority
+    config_filename = f"{config_name_or_path}.yml"
+
+    # 1. User's home directory
+    user_config = _get_user_data_dir() / "configs" / config_filename
+    if user_config.is_file():
+        return user_config
+
+    # 2. Current working directory
+    cwd_config = Path.cwd() / "configs" / config_filename
+    if cwd_config.is_file():
+        return cwd_config
+
+    # 3. Package directory (for development/local runs)
     pkg_dir = Path(__file__).parent.parent.parent  # src/mud_slop -> project root
-    configs_in_pkg = pkg_dir / "configs"
-    if configs_in_pkg.is_dir():
-        return configs_in_pkg
+    pkg_config = pkg_dir / "configs" / config_filename
+    if pkg_config.is_file():
+        return pkg_config
 
-    # Try current working directory
-    cwd_configs = Path.cwd() / "configs"
-    if cwd_configs.is_dir():
-        return cwd_configs
-
-    # Return package location even if it doesn't exist (for error messages)
-    return configs_in_pkg
+    return None
 
 
-def load_config(config_name: str | None = None) -> Config:
+def _get_config_search_paths(config_name: str) -> list[Path]:
+    """Get list of paths that would be searched for a config name."""
+    config_filename = f"{config_name}.yml"
+    return [
+        _get_user_data_dir() / "configs" / config_filename,
+        Path.cwd() / "configs" / config_filename,
+        Path(__file__).parent.parent.parent / "configs" / config_filename,
+    ]
+
+
+def load_config(config_name_or_path: str | None = None) -> Config:
     """Load configuration from a YAML file.
 
     Args:
-        config_name: Name of config file (without .yml extension).
-                    If None or empty, uses 'default'.
+        config_name_or_path: Name of config file (without .yml extension),
+                            or path to a config file. If None or empty, uses 'default'.
 
     Returns:
         Config object with loaded values merged over defaults.
-    """
-    if not config_name:
-        config_name = "default"
 
-    configs_dir = _find_configs_dir()
-    config_path = configs_dir / f"{config_name}.yml"
+    Raises:
+        FileNotFoundError: If a non-default config is specified but not found.
+    """
+    if not config_name_or_path:
+        config_name_or_path = "default"
+
+    config_path = _find_config_file(config_name_or_path)
 
     # Start with defaults
     config = Config()
 
+    # For non-default configs, require the file to exist
+    if config_path is None and config_name_or_path != "default":
+        # Build helpful error message
+        if '/' in config_name_or_path or '\\' in config_name_or_path or config_name_or_path.endswith('.yml'):
+            raise FileNotFoundError(f"Config file not found: {config_name_or_path}")
+        else:
+            search_paths = _get_config_search_paths(config_name_or_path)
+            paths_str = "\n  - ".join(str(p) for p in search_paths)
+            raise FileNotFoundError(
+                f"Config '{config_name_or_path}' not found. Searched:\n  - {paths_str}"
+            )
+
     # If config file exists, load and merge
-    if config_path.is_file():
+    if config_path is not None:
         with open(config_path, 'r', encoding='utf-8') as f:
             yaml_data = parse_simple_yaml(f.read())
         _merge_config(config, yaml_data)
@@ -585,6 +651,16 @@ def _merge_config(config: Config, data: dict):
             config.ui.right_panel_ratio = float(ui['right_panel_ratio'])
         if 'max_output_lines' in ui:
             config.ui.max_output_lines = int(ui['max_output_lines'])
+        if 'history' in ui and isinstance(ui['history'], dict):
+            h = ui['history']
+            if 'conversations' in h:
+                config.ui.history.conversations = bool(h['conversations'])
+            if 'help' in h:
+                config.ui.history.help = bool(h['help'])
+            if 'maps' in h:
+                config.ui.history.maps = bool(h['maps'])
+            if 'info' in h:
+                config.ui.history.info = bool(h['info'])
 
     # Hooks
     if 'hooks' in data and isinstance(data['hooks'], dict):
@@ -595,25 +671,66 @@ def _merge_config(config: Config, data: dict):
             config.hooks.on_exit = [str(cmd) for cmd in hooks['on_exit']]
 
 
-def _find_profiles_dir() -> Path:
-    """Find the profiles directory relative to the package or CWD."""
-    pkg_dir = Path(__file__).parent.parent.parent
-    profiles_in_pkg = pkg_dir / "profiles"
-    if profiles_in_pkg.is_dir():
-        return profiles_in_pkg
+def _find_profile_file(profile_name_or_path: str) -> Path | None:
+    """Find a profile file by name or path.
 
-    cwd_profiles = Path.cwd() / "profiles"
-    if cwd_profiles.is_dir():
-        return cwd_profiles
-
-    return profiles_in_pkg
-
-
-def load_profile(profile_name: str) -> ProfileConfig:
-    """Load a login profile from a YAML file in the profiles/ directory.
+    Search order:
+    1. If it looks like a path (contains / or \\ or ends in .yml), treat as path
+    2. $HOME/.mud-slop/profiles/<name>.yml
+    3. Current working directory profiles/<name>.yml
+    4. Package directory profiles/<name>.yml (for development)
 
     Args:
-        profile_name: Name of profile file (without .yml extension).
+        profile_name_or_path: Profile name (without .yml) or path to profile file.
+
+    Returns:
+        Path to the profile file if found, None otherwise.
+    """
+    # Check if it's a path (contains path separator or ends in .yml)
+    if '/' in profile_name_or_path or '\\' in profile_name_or_path or profile_name_or_path.endswith('.yml'):
+        path = Path(profile_name_or_path).expanduser()
+        if path.is_file():
+            return path
+        return None
+
+    # It's a profile name - search in order of priority
+    profile_filename = f"{profile_name_or_path}.yml"
+
+    # 1. User's home directory
+    user_profile = _get_user_data_dir() / "profiles" / profile_filename
+    if user_profile.is_file():
+        return user_profile
+
+    # 2. Current working directory
+    cwd_profile = Path.cwd() / "profiles" / profile_filename
+    if cwd_profile.is_file():
+        return cwd_profile
+
+    # 3. Package directory (for development/local runs)
+    pkg_dir = Path(__file__).parent.parent.parent  # src/mud_slop -> project root
+    pkg_profile = pkg_dir / "profiles" / profile_filename
+    if pkg_profile.is_file():
+        return pkg_profile
+
+    return None
+
+
+def _get_profile_search_paths(profile_name: str) -> list[Path]:
+    """Get list of paths that would be searched for a profile name."""
+    profile_filename = f"{profile_name}.yml"
+    return [
+        _get_user_data_dir() / "profiles" / profile_filename,
+        Path.cwd() / "profiles" / profile_filename,
+        Path(__file__).parent.parent.parent / "profiles" / profile_filename,
+    ]
+
+
+def load_profile(profile_name_or_path: str) -> ProfileConfig:
+    """Load a login profile from a YAML file.
+
+    Args:
+        profile_name_or_path: Name of profile file (without .yml extension),
+                             or path to a profile file.
 
     Returns:
         ProfileConfig with username and password.
@@ -621,11 +738,18 @@ def load_profile(profile_name: str) -> ProfileConfig:
     Raises:
         FileNotFoundError: If the profile file does not exist.
     """
-    profiles_dir = _find_profiles_dir()
-    profile_path = profiles_dir / f"{profile_name}.yml"
+    profile_path = _find_profile_file(profile_name_or_path)
 
-    if not profile_path.is_file():
-        raise FileNotFoundError(f"Profile not found: {profile_path}")
+    if profile_path is None:
+        # Build helpful error message
+        if '/' in profile_name_or_path or '\\' in profile_name_or_path or profile_name_or_path.endswith('.yml'):
+            raise FileNotFoundError(f"Profile file not found: {profile_name_or_path}")
+        else:
+            search_paths = _get_profile_search_paths(profile_name_or_path)
+            paths_str = "\n  - ".join(str(p) for p in search_paths)
+            raise FileNotFoundError(
+                f"Profile '{profile_name_or_path}' not found. Searched:\n  - {paths_str}"
+            )
 
     with open(profile_path, 'r', encoding='utf-8') as f:
         data = parse_simple_yaml(f.read())
@@ -643,14 +767,15 @@ def create_profile(profile_name: str) -> Path:
     """Interactively create a login profile.
 
     Prompts for username and password (password hidden) and writes
-    a YAML file to the profiles/ directory.
+    a YAML file to the user's ~/.mud-slop/profiles/ directory.
 
     Returns:
         Path to the created profile file.
     """
     import getpass
 
-    profiles_dir = _find_profiles_dir()
+    # Always create in user's home directory
+    profiles_dir = _get_user_data_dir() / "profiles"
     profiles_dir.mkdir(parents=True, exist_ok=True)
     profile_path = profiles_dir / f"{profile_name}.yml"
 

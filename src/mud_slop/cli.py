@@ -9,7 +9,7 @@ from mud_slop.config import load_config, load_profile, create_profile
 def main():
     p = argparse.ArgumentParser(description="Curses MUD client")
     p.add_argument("-c", "--config", default="default",
-                   help="Configuration name (loads configs/<name>.yml)")
+                   help="Configuration name or path (searches ~/.mud-slop/configs/, ./configs/, or use full path)")
     p.add_argument("host", nargs="?", default=None,
                    help="MUD host (domain or IP) - overrides config")
     p.add_argument("port", nargs="?", type=int, default=None,
@@ -20,9 +20,9 @@ def main():
                    help="Enable debug logging to mud_*.log files in current directory")
     p.add_argument("-p", "--profile",
                    default=None,
-                   help="Login profile name (loads profiles/<name>.yml for auto-login)")
+                   help="Login profile name or path (searches ~/.mud-slop/profiles/, ./profiles/, or use full path)")
     p.add_argument("--create-profile", metavar="NAME",
-                   help="Create a login profile interactively and exit")
+                   help="Create a login profile interactively (saves to ~/.mud-slop/profiles/)")
     p.add_argument("--conv-pos",
                    choices=["top-left", "top-center", "top-right",
                             "bottom-left", "bottom-center", "bottom-right"],
@@ -37,7 +37,10 @@ def main():
         return
 
     # Load configuration
-    config = load_config(args.config)
+    try:
+        config = load_config(args.config)
+    except FileNotFoundError as e:
+        p.error(str(e))
 
     # Load login profile if specified
     if args.profile:

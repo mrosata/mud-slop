@@ -93,6 +93,14 @@ ui:
   right_panel_ratio: 0.40     # Use 40% of screen width for right panel
   max_output_lines: 5000      # Maximum lines to keep in scrollback
 
+  # What content to show when scrolling up into history mode
+  # Toggle at runtime with /history <type> on|off
+  history:
+    conversations: true   # Show conversation lines in scroll history
+    help: false           # Show help content in scroll history
+    maps: false           # Show map data in scroll history
+    info: false           # Show INFO messages in scroll history
+
 # Command hooks
 hooks:
   # Commands to run after login (when GMCP vitals first arrive)
