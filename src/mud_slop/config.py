@@ -219,8 +219,12 @@ def _parse_value(s: str) -> str | int | float | bool | None:
 
     # Quoted string
     if len(s) >= 2:
-        if (s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'"):
-            return s[1:-1]
+        if s[0] == '"' and s[-1] == '"':
+            # Double-quoted: process escape sequences
+            return _unescape_double_quoted(s[1:-1])
+        if s[0] == "'" and s[-1] == "'":
+            # Single-quoted: no escape processing (except '' for single quote)
+            return s[1:-1].replace("''", "'")
 
     # Number
     try:
@@ -232,6 +236,42 @@ def _parse_value(s: str) -> str | int | float | bool | None:
 
     # Plain string
     return s
+
+
+def _unescape_double_quoted(s: str) -> str:
+    """Process YAML escape sequences in a double-quoted string."""
+    result = []
+    i = 0
+    while i < len(s):
+        if s[i] == '\\' and i + 1 < len(s):
+            next_char = s[i + 1]
+            if next_char == 'n':
+                result.append('\n')
+            elif next_char == 't':
+                result.append('\t')
+            elif next_char == 'r':
+                result.append('\r')
+            elif next_char == '\\':
+                result.append('\\')
+            elif next_char == '"':
+                result.append('"')
+            elif next_char == '/':
+                result.append('/')
+            elif next_char == 'b':
+                result.append('\b')
+            elif next_char == 'f':
+                result.append('\f')
+            elif next_char == '0':
+                result.append('\0')
+            else:
+                # Unknown escape: keep as-is
+                result.append(s[i])
+                result.append(next_char)
+            i += 2
+        else:
+            result.append(s[i])
+            i += 1
+    return ''.join(result)
 
 
 # --- Configuration Dataclasses ---
