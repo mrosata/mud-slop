@@ -12,6 +12,9 @@ wheels/
 # Logging
 *.log
 
+# Configs symlink (real files live in src/mud_slop/configs/)
+/configs
+
 # Profiles (contain credentials — never commit)
 profiles/*
 !profiles/.gitkeep

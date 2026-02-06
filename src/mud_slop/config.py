@@ -11,9 +11,9 @@ Uses a minimal YAML parser (no external dependencies) supporting:
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
+from importlib.resources import as_file, files
 from pathlib import Path
 
 
@@ -486,22 +486,25 @@ def _find_config_file(config_name_or_path: str) -> Path | None:
     if cwd_config.is_file():
         return cwd_config
 
-    # 3. Package directory (for development/local runs)
-    pkg_dir = Path(__file__).parent.parent.parent  # src/mud_slop -> project root
-    pkg_config = pkg_dir / "configs" / config_filename
-    if pkg_config.is_file():
-        return pkg_config
+    # 3. Bundled package configs (works when installed from PyPI)
+    try:
+        config_ref = files("mud_slop.configs").joinpath(config_filename)
+        with as_file(config_ref) as p:
+            if p.is_file():
+                return Path(p)
+    except (ModuleNotFoundError, FileNotFoundError, TypeError):
+        pass
 
     return None
 
 
-def _get_config_search_paths(config_name: str) -> list[Path]:
+def _get_config_search_paths(config_name: str) -> list[str]:
     """Get list of paths that would be searched for a config name."""
     config_filename = f"{config_name}.yml"
     return [
-        _get_user_data_dir() / "configs" / config_filename,
-        Path.cwd() / "configs" / config_filename,
-        Path(__file__).parent.parent.parent / "configs" / config_filename,
+        str(_get_user_data_dir() / "configs" / config_filename),
+        str(Path.cwd() / "configs" / config_filename),
+        f"mud_slop.configs/{config_filename} (bundled)",
     ]
 
 
@@ -678,7 +681,6 @@ def _find_profile_file(profile_name_or_path: str) -> Path | None:
     1. If it looks like a path (contains / or \\ or ends in .yml), treat as path
     2. $HOME/.mud-slop/profiles/<name>.yml
     3. Current working directory profiles/<name>.yml
-    4. Package directory profiles/<name>.yml (for development)
 
     Args:
         profile_name_or_path: Profile name (without .yml) or path to profile file.
@@ -706,22 +708,15 @@ def _find_profile_file(profile_name_or_path: str) -> Path | None:
     if cwd_profile.is_file():
         return cwd_profile
 
-    # 3. Package directory (for development/local runs)
-    pkg_dir = Path(__file__).parent.parent.parent  # src/mud_slop -> project root
-    pkg_profile = pkg_dir / "profiles" / profile_filename
-    if pkg_profile.is_file():
-        return pkg_profile
-
     return None
 
 
-def _get_profile_search_paths(profile_name: str) -> list[Path]:
+def _get_profile_search_paths(profile_name: str) -> list[str]:
     """Get list of paths that would be searched for a profile name."""
     profile_filename = f"{profile_name}.yml"
     return [
-        _get_user_data_dir() / "profiles" / profile_filename,
-        Path.cwd() / "profiles" / profile_filename,
-        Path(__file__).parent.parent.parent / "profiles" / profile_filename,
+        str(_get_user_data_dir() / "profiles" / profile_filename),
+        str(Path.cwd() / "profiles" / profile_filename),
     ]
 
 
