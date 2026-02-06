@@ -1,24 +1,16 @@
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from mud_client.ansi import strip_ansi
+
+if TYPE_CHECKING:
+    from mud_client.config import MapPatterns
 
 
 class MapTracker:
     """Detects and extracts ASCII map blocks using <MAPSTART>/<MAPEND> tags and room descriptions using {rdesc}/{/rdesc} tags."""
-
-    # Matches the <MAPSTART> and <MAPEND> tags
-    _MAPSTART_RE = re.compile(r'<MAPSTART>')
-    _MAPEND_RE = re.compile(r'<MAPEND>')
-
-    # Matches room description tags: {rdesc} and {/rdesc}
-    _RDESC_START_RE = re.compile(r'\{rdesc\}')
-    _RDESC_END_RE = re.compile(r'\{/rdesc\}')
-
-    # Matches coords line: {coords}x,y,z
-    _COORDS_RE = re.compile(r'\{coords\}(\S+)')
-
-    # Matches exits line: [ Exits: ... ]
-    _EXITS_RE = re.compile(r'^\s*\[?\s*Exits:\s*.*\]?\s*$', re.IGNORECASE)
 
     # Room name line after <MAPEND>: "Room Name" or "Room Name (G)" or "Room Name (123)" or "Room Name (G) (123)"
     # Starts with a letter, may have optional (X) markers at the end
@@ -27,7 +19,24 @@ class MapTracker:
     # Map line detection: no runs of 2+ alpha chars
     _ALPHA_RUN = re.compile(r'[a-zA-Z]{2,}')
 
-    def __init__(self):
+    def __init__(self, patterns: "MapPatterns | None" = None):
+        # Compile patterns from config or use defaults
+        if patterns:
+            self._MAPSTART_RE = re.compile(patterns.start_tag)
+            self._MAPEND_RE = re.compile(patterns.end_tag)
+            self._RDESC_START_RE = re.compile(patterns.rdesc_start)
+            self._RDESC_END_RE = re.compile(patterns.rdesc_end)
+            self._COORDS_RE = re.compile(patterns.coords)
+            self._EXITS_RE = re.compile(patterns.exits, re.IGNORECASE)
+        else:
+            # Default patterns
+            self._MAPSTART_RE = re.compile(r'<MAPSTART>')
+            self._MAPEND_RE = re.compile(r'<MAPEND>')
+            self._RDESC_START_RE = re.compile(r'\{rdesc\}')
+            self._RDESC_END_RE = re.compile(r'\{/rdesc\}')
+            self._COORDS_RE = re.compile(r'\{coords\}(\S+)')
+            self._EXITS_RE = re.compile(r'^\s*\[?\s*Exits:\s*.*\]?\s*$', re.IGNORECASE)
+
         self.map_lines: list[str] = []       # current map (raw ANSI lines)
         self.room_name: str = ""             # plain text room name
         self.room_name_raw: str = ""         # raw ANSI room name line

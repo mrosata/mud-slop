@@ -15,6 +15,7 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 - **Command history** — Up/Down arrows with prefix filtering
 - **Line editing** — Left/Right arrows, Ctrl+A/E (home/end), Ctrl+Left/Right (word jump), Ctrl+W/U/K (kill word/to-start/to-end), Delete key
 - **Password masking** — input is hidden when the server signals password mode (via telnet WILL ECHO)
+- **Auto-login profiles** — store credentials in gitignored YAML profiles (`profiles/<name>.yml`) and use `-p <name>` to log in automatically
 
 ## Requirements
 
@@ -38,19 +39,96 @@ uv run mud-client <host> <port>
 
 | Flag | Description |
 |---|---|
+| `-c`, `--config` | Configuration name (loads `configs/<name>.yml`, default: `default`) |
+| `-p`, `--profile` | Login profile name (loads `profiles/<name>.yml` for auto-login) |
+| `--create-profile NAME` | Create a login profile interactively and exit |
 | `--no-color` | Disable ANSI color rendering |
 | `-d`, `--debug` | Enable debug logging to `mud_*.log` files |
 | `--conv-pos {top-left\|top-center\|...\|bottom-right}` | Conversation overlay position (default: `bottom-right`) |
 
-### Example
+### Examples
 
 ```bash
-# Connect to Aardwolf
+# Connect to Aardwolf using config file
+uv run mud-client -c aardwolf
+
+# Connect with explicit host/port (overrides config)
 uv run mud-client aardmud.org 4000
 
 # With debug logging enabled
-uv run mud-client aardmud.org 4000 --debug
+uv run mud-client -c aardwolf --debug
+
+# Create a login profile (prompts for username/password)
+uv run mud-client --create-profile mychar
+
+# Auto-login with a profile
+uv run mud-client -c aardwolf -p mychar
+
+# Override host/port from config
+uv run mud-client -c aardwolf localhost 5000
 ```
+
+### Configuration
+
+Configuration files are stored in the `configs/` directory as YAML files. Use `-c <name>` to load `configs/<name>.yml`. CLI arguments override config values.
+
+Example config structure (`configs/aardwolf.yml`):
+
+```yaml
+connection:
+  host: aardmud.org
+  port: 4000
+
+gmcp:
+  subscriptions:
+    - "char 1"
+    - "char.vitals 1"
+    - "char.stats 1"
+
+patterns:
+  map:
+    start_tag: '<MAPSTART>'
+    end_tag: '<MAPEND>'
+  info:
+    prefix: '^INFO:\s+'
+
+timers:
+  conversation:
+    auto_close: 8.0
+
+ui:
+  right_panel_max_width: 70
+  max_output_lines: 5000
+
+hooks:
+  # Commands to run after login (when GMCP vitals first arrive)
+  post_login:
+    - map
+    - look
+  # Commands to run before disconnecting
+  on_exit:
+    - quit
+```
+
+See `configs/default.yml` for the complete schema with all options.
+
+### Profiles
+
+Login profiles are stored in the `profiles/` directory as YAML files. Profile files are **gitignored** to prevent committing credentials.
+
+Create a profile interactively (password input is hidden):
+
+```bash
+uv run mud-client --create-profile mychar
+```
+
+Then use it to auto-login:
+
+```bash
+uv run mud-client -c aardwolf -p mychar
+```
+
+The client sends the username after the server's initial prompt and sends the password when the server enters password mode (telnet WILL ECHO). See `profiles/README.md` for details.
 
 ### In-app commands
 

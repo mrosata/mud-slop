@@ -1,0 +1,94 @@
+# Aardwolf MUD configuration
+# https://www.aardwolf.com/
+
+connection:
+  host: aardmud.org
+  port: 4000
+
+# GMCP settings for Aardwolf
+gmcp:
+  subscriptions:
+    - "char 1"
+    - "char.vitals 1"
+    - "char.stats 1"
+    - "char.status 1"
+    - "char.maxstats 1"
+
+  vitals:
+    hp: vitals.hp
+    max_hp: maxstats.maxhp
+    mana: vitals.mana
+    max_mana: maxstats.maxmana
+    moves: vitals.moves
+    max_moves: maxstats.maxmoves
+
+  status:
+    level: status.level
+    tnl: status.tnl
+    position: status.position
+    enemy: status.enemy
+
+  attributes:
+    - str
+    - int
+    - wis
+    - dex
+    - con
+    - luck
+
+# Aardwolf-specific patterns
+patterns:
+  map:
+    start_tag: '<MAPSTART>'
+    end_tag: '<MAPEND>'
+    rdesc_start: '\{rdesc\}'
+    rdesc_end: '\{/rdesc\}'
+    coords: '\{coords\}(\S+)'
+    exits: '^\s*\[?\s*Exits:\s*.*\]?\s*$'
+
+  info:
+    prefix: '^INFO:\s+'
+
+  help:
+    start_tag: '\{help\}'
+    end_tag: '\{/help\}'
+    body_start: '\{helpbody\}'
+    body_end: '\{/helpbody\}'
+    tags: '\{helptags\}(.*)$'
+
+  conversation:
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+says?,?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: says
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+tells?\\s+you,?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: tells
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+whispers?,?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: whispers
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:yells?|shouts?),?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: yells
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:asks?|exclaims?|questions?),?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: asks
+
+timers:
+  conversation:
+    auto_close: 8.0
+
+  info:
+    min_display: 10.0
+    auto_hide: 40.0
+    max_history: 200
+
+ui:
+  right_panel_max_width: 70
+  right_panel_ratio: 0.40
+  max_output_lines: 5000
+
+# Aardwolf-specific command hooks
+hooks:
+  # Commands to run after login (when GMCP vitals first arrive)
+  post_login:
+    - map
+    - look
+
+  # Commands to run before disconnecting
+  on_exit:
+    - quit

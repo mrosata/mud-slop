@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import re
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-_INFO_RE = re.compile(r"^INFO:\s+")
+if TYPE_CHECKING:
+    from mud_client.config import InfoPatterns, InfoTimers
 
 
 @dataclass
@@ -15,11 +19,24 @@ class InfoEntry:
 class InfoTracker:
     """Tracks INFO channel messages and manages a news-ticker display."""
 
-    def __init__(self, min_display: float = 10.0, auto_hide: float = 40.0,
-                 max_history: int = 200):
-        self.min_display = min_display    # minimum seconds to show each message
-        self.auto_hide = auto_hide        # hide ticker after this many idle seconds
-        self.max_history = max_history
+    def __init__(self, patterns: "InfoPatterns | None" = None,
+                 timers: "InfoTimers | None" = None):
+        # Compile pattern from config or use default
+        if patterns:
+            self._info_re = re.compile(patterns.prefix)
+        else:
+            self._info_re = re.compile(r"^INFO:\s+")
+
+        # Timer settings
+        if timers:
+            self.min_display = timers.min_display
+            self.auto_hide = timers.auto_hide
+            self.max_history = timers.max_history
+        else:
+            self.min_display = 10.0
+            self.auto_hide = 40.0
+            self.max_history = 200
+
         self.history: list[InfoEntry] = []
         self.current: InfoEntry | None = None
         self._queue: list[InfoEntry] = []
@@ -27,7 +44,7 @@ class InfoTracker:
 
     def match(self, plain_text: str) -> bool:
         """Return True if plain_text is an INFO channel line."""
-        return bool(_INFO_RE.match(plain_text))
+        return bool(self._info_re.match(plain_text))
 
     def add(self, plain_text: str, raw_line: str):
         entry = InfoEntry(text=plain_text, raw_line=raw_line,

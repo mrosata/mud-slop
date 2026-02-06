@@ -12,6 +12,11 @@ wheels/
 # Logging
 *.log
 
+# Profiles (contain credentials — never commit)
+profiles/*
+!profiles/.gitkeep
+!profiles/*.md
+
 # IDE and AI
 .idea
 .vscode

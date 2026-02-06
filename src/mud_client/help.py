@@ -1,7 +1,13 @@
 """Help pager overlay for displaying {help}/{/help} tagged content."""
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mud_client.config import HelpPatterns
 
 
 @dataclass
@@ -16,15 +22,24 @@ class HelpContent:
 class HelpTracker:
     """Detects and displays help content using {help}/{/help} tags."""
 
-    # Tag patterns
-    _HELP_START_RE = re.compile(r'\{help\}')
-    _HELP_END_RE = re.compile(r'\{/help\}')
-    _HELPBODY_START_RE = re.compile(r'\{helpbody\}')
-    _HELPBODY_END_RE = re.compile(r'\{/helpbody\}')
-    _HELPTAGS_RE = re.compile(r'\{helptags\}(.*)$')
+    # Always needed for cleanup
     _HELPKEYWORDS_RE = re.compile(r'\{helpkeywords\}')
 
-    def __init__(self):
+    def __init__(self, patterns: "HelpPatterns | None" = None):
+        # Compile patterns from config or use defaults
+        if patterns:
+            self._HELP_START_RE = re.compile(patterns.start_tag)
+            self._HELP_END_RE = re.compile(patterns.end_tag)
+            self._HELPBODY_START_RE = re.compile(patterns.body_start)
+            self._HELPBODY_END_RE = re.compile(patterns.body_end)
+            self._HELPTAGS_RE = re.compile(patterns.tags)
+        else:
+            self._HELP_START_RE = re.compile(r'\{help\}')
+            self._HELP_END_RE = re.compile(r'\{/help\}')
+            self._HELPBODY_START_RE = re.compile(r'\{helpbody\}')
+            self._HELPBODY_END_RE = re.compile(r'\{/helpbody\}')
+            self._HELPTAGS_RE = re.compile(r'\{helptags\}(.*)$')
+
         # Public state (read by UI)
         self.content: HelpContent | None = None  # Current help content
         self.visible: bool = False               # Overlay shown

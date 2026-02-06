@@ -1,0 +1,104 @@
+# Default configuration for mud-client
+# This file contains Aardwolf-style defaults
+
+# Connection settings (can be overridden by CLI arguments)
+connection:
+  host: null  # No default - must be specified via CLI or config
+  port: null  # No default - must be specified via CLI or config
+
+# GMCP (Generic MUD Communication Protocol) settings
+gmcp:
+  # Packages to subscribe to after GMCP negotiation
+  subscriptions:
+    - "char 1"
+    - "char.vitals 1"
+    - "char.stats 1"
+    - "char.status 1"
+    - "char.maxstats 1"
+
+  # Mapping paths for vitals bar display
+  vitals:
+    hp: vitals.hp
+    max_hp: maxstats.maxhp
+    mana: vitals.mana
+    max_mana: maxstats.maxmana
+    moves: vitals.moves
+    max_moves: maxstats.maxmoves
+
+  # Status display paths
+  status:
+    level: status.level
+    tnl: status.tnl
+    position: status.position
+    enemy: status.enemy
+
+  # Character attributes to display
+  attributes:
+    - str
+    - int
+    - wis
+    - dex
+    - con
+    - luck
+
+# Pattern definitions for detecting special content
+patterns:
+  # Map detection patterns
+  map:
+    start_tag: '<MAPSTART>'
+    end_tag: '<MAPEND>'
+    rdesc_start: '\{rdesc\}'
+    rdesc_end: '\{/rdesc\}'
+    coords: '\{coords\}(\S+)'
+    exits: '^\s*\[?\s*Exits:\s*.*\]?\s*$'
+
+  # Info ticker pattern
+  info:
+    prefix: '^INFO:\s+'
+
+  # Help pager patterns
+  help:
+    start_tag: '\{help\}'
+    end_tag: '\{/help\}'
+    body_start: '\{helpbody\}'
+    body_end: '\{/helpbody\}'
+    tags: '\{helptags\}(.*)$'
+
+  # Conversation/speech patterns
+  conversation:
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+says?,?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: says
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+tells?\\s+you,?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: tells
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+whispers?,?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: whispers
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:yells?|shouts?),?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: yells
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:asks?|exclaims?|questions?),?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: asks
+
+# Timer settings
+timers:
+  conversation:
+    auto_close: 8.0  # Seconds before auto-closing when all entries viewed
+
+  info:
+    min_display: 10.0   # Minimum seconds to show each message
+    auto_hide: 40.0     # Hide ticker after this many idle seconds
+    max_history: 200    # Maximum info messages to keep in history
+
+# UI layout settings
+ui:
+  right_panel_max_width: 70   # Max width for stats and map panels
+  right_panel_ratio: 0.40     # Use 40% of screen width for right panel
+  max_output_lines: 5000      # Maximum lines to keep in scrollback
+
+# Command hooks
+hooks:
+  # Commands to run after login (when GMCP vitals first arrive)
+  post_login:
+    - map
+    - look
+
+  # Commands to run before disconnecting (on /quit or Ctrl+C)
+  on_exit: []

@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import json
 import queue
 import selectors
 import socket
 import time
+from typing import TYPE_CHECKING
 
 from mud_client.constants import (
     IAC, DO, GMCP, SB, SE,
@@ -11,15 +14,20 @@ from mud_client.constants import (
 from mud_client.types import ProtoEvent, safe_text_preview, hex_preview
 from mud_client.telnet import TelnetFilter
 
+if TYPE_CHECKING:
+    from mud_client.config import GMCPConfig
+
 
 class MudConnection:
     def __init__(self, host: str, port: int, proto_q: "queue.Queue[ProtoEvent]",
-                 text_q: "queue.Queue[str]", gmcp_q: "queue.Queue[tuple[float, bytes]]"):
+                 text_q: "queue.Queue[str]", gmcp_q: "queue.Queue[tuple[float, bytes]]",
+                 gmcp_config: "GMCPConfig | None" = None):
         self.host = host
         self.port = port
         self.proto_q = proto_q
         self.text_q = text_q
         self.gmcp_q = gmcp_q
+        self.gmcp_config = gmcp_config
 
         self.sock = None
         self.sel = selectors.DefaultSelector()
@@ -146,10 +154,15 @@ class MudConnection:
 
     def _send_gmcp_handshake(self):
         self.send_gmcp("Core.Hello", json.dumps({"client": "PyMudClient", "version": "0.1.0"}))
-        self.send_gmcp("Core.Supports.Set", json.dumps([
-            "char 1", "char.vitals 1", "char.stats 1", "char.status 1",
-            "char.maxstats 1",
-        ]))
+        # Use subscriptions from config if available, otherwise use defaults
+        if self.gmcp_config and self.gmcp_config.subscriptions:
+            subscriptions = self.gmcp_config.subscriptions
+        else:
+            subscriptions = [
+                "char 1", "char.vitals 1", "char.stats 1", "char.status 1",
+                "char.maxstats 1",
+            ]
+        self.send_gmcp("Core.Supports.Set", json.dumps(subscriptions))
 
     def _pretty_telnet_note(self, b: bytes) -> str:
         # b may be 2 bytes (IAC cmd) or 3 bytes (IAC cmd opt) or our annotations

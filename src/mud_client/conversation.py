@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 import re
 import textwrap
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mud_client.config import ConversationPattern as ConfigPattern
 
 
 @dataclass
@@ -19,13 +25,13 @@ class ConversationEntry:
 
 
 class ConversationTracker:
-    def __init__(self, patterns: list[SpeechPattern]):
+    def __init__(self, patterns: list[SpeechPattern], auto_close_seconds: float = 8.0):
         self.patterns = patterns
         self.entries: list[ConversationEntry] = []
         self.view_index: int = 0
         self.visible: bool = False
         self.last_speech_time: float = 0.0
-        self.auto_close_seconds: float = 8.0
+        self.auto_close_seconds: float = auto_close_seconds
         # Multi-line speech accumulation state
         self._pending_entry: ConversationEntry | None = None
         self._open_quote: str = ""  # the quote character that opened the block
@@ -166,6 +172,14 @@ DEFAULT_SPEECH_PATTERNS = [
     SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+)\s+(?:yells?|shouts?),?\s+(?P<quote>['\"])(?P<message>.+)"), "yells"),
     SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+)\s+(?:asks?|exclaims?|questions?),?\s+(?P<quote>['\"])(?P<message>.+)"), "asks"),
 ]
+
+
+def build_speech_patterns(config_patterns: "list[ConfigPattern]") -> list[SpeechPattern]:
+    """Build SpeechPattern list from config ConversationPattern list."""
+    return [
+        SpeechPattern(re.compile(cp.pattern), cp.label)
+        for cp in config_patterns
+    ]
 
 
 def _wrap_text(text: str, width: int) -> list[str]:

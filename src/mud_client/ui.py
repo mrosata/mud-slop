@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import curses
+from typing import TYPE_CHECKING
 
 from mud_client.types import ts_str
 from mud_client.ansi import _init_color_pairs, strip_ansi, parse_ansi, _color_pair_id
@@ -6,38 +9,69 @@ from mud_client.gmcp import GMCPHandler
 from mud_client.debug_log import DebugLogger
 from mud_client.history import CommandHistory
 from mud_client.input_buffer import InputBuffer
-from mud_client.conversation import ConversationTracker, DEFAULT_SPEECH_PATTERNS, _wrap_text
+from mud_client.conversation import ConversationTracker, DEFAULT_SPEECH_PATTERNS, build_speech_patterns, _wrap_text
 from mud_client.info import InfoTracker
 from mud_client.map import MapTracker
 from mud_client.help import HelpTracker
 
+if TYPE_CHECKING:
+    from mud_client.config import Config
+
 
 class MudUI:
-    RIGHT_PANEL_MAX_WIDTH = 70  # Max width for stats and map panels
-    RIGHT_PANEL_RATIO = 0.40    # Use 40% of screen width
     HELP_MIN_WIDTH = 65     # Minimum width for help pager
     HELP_MIN_HEIGHT = 30
 
     def __init__(self, stdscr, gmcp_handler: "GMCPHandler | None" = None,
                  color: bool = True, debug_logger: "DebugLogger | None" = None,
-                 conv_pos: str = "bottom-right"):
+                 conv_pos: str = "bottom-right", config: "Config | None" = None):
         self.stdscr = stdscr
         self.conv_pos = conv_pos
         self.gmcp_handler = gmcp_handler
         self.color_enabled = color
         self.debug_logger = debug_logger
+        self.config = config
+
+        # UI layout settings from config or defaults
+        if config and config.ui:
+            self.RIGHT_PANEL_MAX_WIDTH = config.ui.right_panel_max_width
+            self.RIGHT_PANEL_RATIO = config.ui.right_panel_ratio
+            self.max_output_lines = config.ui.max_output_lines
+        else:
+            self.RIGHT_PANEL_MAX_WIDTH = 70
+            self.RIGHT_PANEL_RATIO = 0.40
+            self.max_output_lines = 5000
 
         self.output_lines = []   # main text area (full history)
         self.display_lines = []  # filtered view (conversation lines removed)
         self.input_buf = InputBuffer()
         self.history = CommandHistory()
-        self.conversation = ConversationTracker(DEFAULT_SPEECH_PATTERNS)
-        self.info_tracker = InfoTracker()
-        self.map_tracker = MapTracker()
-        self.help_tracker = HelpTracker()
-        self._skip_next_blank = False
 
-        self.max_output_lines = 5000
+        # Build trackers with config
+        if config:
+            # Conversation tracker with patterns and timer from config
+            conv_patterns = build_speech_patterns(config.patterns.conversation.patterns)
+            auto_close = config.timers.conversation.auto_close
+            self.conversation = ConversationTracker(conv_patterns, auto_close)
+
+            # Info tracker with pattern and timers from config
+            self.info_tracker = InfoTracker(
+                patterns=config.patterns.info,
+                timers=config.timers.info
+            )
+
+            # Map tracker with patterns from config
+            self.map_tracker = MapTracker(patterns=config.patterns.map)
+
+            # Help tracker with patterns from config
+            self.help_tracker = HelpTracker(patterns=config.patterns.help)
+        else:
+            self.conversation = ConversationTracker(DEFAULT_SPEECH_PATTERNS)
+            self.info_tracker = InfoTracker()
+            self.map_tracker = MapTracker()
+            self.help_tracker = HelpTracker()
+
+        self._skip_next_blank = False
         self._incomplete_line = ""  # Buffer for incomplete lines (no trailing \n)
 
         # Scroll state: 0 = pinned to bottom (auto-scroll), >0 = lines from bottom
