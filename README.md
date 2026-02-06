@@ -55,9 +55,9 @@ uv run mud-slop <host> <port>
 
 | Flag | Description |
 |---|---|
-| `-c`, `--config` | Configuration name (loads `configs/<name>.yml`, default: `default`) |
-| `-p`, `--profile` | Login profile name (loads `profiles/<name>.yml` for auto-login) |
-| `--create-profile NAME` | Create a login profile interactively and exit |
+| `-c`, `--config` | Configuration name or path (see [Configuration](#configuration)) |
+| `-p`, `--profile` | Login profile name or path (see [Profiles](#profiles)) |
+| `--create-profile NAME` | Create a login profile interactively (saves to `~/.mud-slop/profiles/`) |
 | `--no-color` | Disable ANSI color rendering |
 | `-d`, `--debug` | Enable debug logging to `mud_*.log` files |
 | `--conv-pos {top-left\|top-center\|...\|bottom-right}` | Conversation overlay position (default: `bottom-right`) |
@@ -86,7 +86,14 @@ uv run mud-slop -c aardwolf localhost 5000
 
 ### Configuration
 
-Configuration files are stored in the `configs/` directory as YAML files. Use `-c <name>` to load `configs/<name>.yml`. CLI arguments override config values.
+Configuration files are YAML files loaded via `-c <name>` or `-c <path>`. CLI arguments override config values.
+
+**Search order for config names:**
+1. `~/.mud-slop/configs/<name>.yml` (user configs)
+2. `./configs/<name>.yml` (current directory)
+3. Package `configs/` directory (bundled configs)
+
+You can also pass a full path: `-c ~/my-configs/custom.yml`
 
 Example config structure (`configs/aardwolf.yml`):
 
@@ -130,18 +137,25 @@ See `configs/default.yml` for the complete schema with all options.
 
 ### Profiles
 
-Login profiles are stored in the `profiles/` directory as YAML files. Profile files are **gitignored** to prevent committing credentials.
+Login profiles store credentials for auto-login. Profile files are **gitignored** to prevent committing secrets.
 
-Create a profile interactively (password input is hidden):
+**Search order for profile names:**
+1. `~/.mud-slop/profiles/<name>.yml` (user profiles)
+2. `./profiles/<name>.yml` (current directory)
+3. Package `profiles/` directory
+
+You can also pass a full path: `-p ~/my-profiles/mychar.yml`
+
+Create a profile interactively (password input is hidden, saves to `~/.mud-slop/profiles/`):
 
 ```bash
-uv run mud-slop --create-profile mychar
+mud-slop --create-profile mychar
 ```
 
 Then use it to auto-login:
 
 ```bash
-uv run mud-slop -c aardwolf -p mychar
+mud-slop -c aardwolf -p mychar
 ```
 
 The client sends the username after the server's initial prompt and sends the password when the server enters password mode (telnet WILL ECHO). See `profiles/README.md` for details.

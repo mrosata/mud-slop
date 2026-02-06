@@ -52,7 +52,7 @@ def run_client(stdscr, config: Config, color: bool = True,
             # Sync password mode state from connection to UI
             ui.echo_off = conn.echo_off
 
-            # Drain queues
+            # Drain protocol queue
             while True:
                 try:
                     ev = proto_q.get_nowait()
@@ -60,14 +60,7 @@ def run_client(stdscr, config: Config, color: bool = True,
                     break
                 logger.log_proto(ev)
 
-            while True:
-                try:
-                    t = text_q.get_nowait()
-                except queue.Empty:
-                    break
-                ui.add_output_text(t)
-                logger.log_output(t)
-
+            # Drain GMCP queue FIRST - so vitals are available before text processing
             while True:
                 try:
                     ts, payload = gmcp_q.get_nowait()
@@ -75,6 +68,26 @@ def run_client(stdscr, config: Config, color: bool = True,
                     break
                 pkg, data = gmcp_handler.handle(ts, payload)
                 logger.log_gmcp(pkg, data)
+
+            # After login (GMCP vitals arrive): enable map detection and run
+            # post-login hook commands from config. Must happen BEFORE text
+            # processing so the initial room map is filtered.
+            if (not ui.map_tracker.sent_initial
+                    and not ui.map_tracker.map_lines
+                    and gmcp_handler.vitals):
+                ui.map_tracker.enabled = True
+                for cmd in config.hooks.post_login:
+                    conn.send_line(cmd)
+                ui.map_tracker.sent_initial = True
+
+            # Drain text queue AFTER map tracker is enabled
+            while True:
+                try:
+                    t = text_q.get_nowait()
+                except queue.Empty:
+                    break
+                ui.add_output_text(t)
+                logger.log_output(t)
 
             # Auto-login: send username after first server text,
             # send password when echo_off (password mode) activates.
@@ -86,16 +99,6 @@ def run_client(stdscr, config: Config, color: bool = True,
                 conn.send_line(profile_password)
                 login_sent_password = True
             prev_echo_off = conn.echo_off
-
-            # After login (GMCP vitals arrive): enable map detection and run
-            # post-login hook commands from config.
-            if (not ui.map_tracker.sent_initial
-                    and not ui.map_tracker.map_lines
-                    and gmcp_handler.vitals):
-                ui.map_tracker.enabled = True
-                for cmd in config.hooks.post_login:
-                    conn.send_line(cmd)
-                ui.map_tracker.sent_initial = True
 
             # Tick timers
             now = time.time()
