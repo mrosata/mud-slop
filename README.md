@@ -55,6 +55,7 @@ uv run mud-slop <host> <port>
 
 | Flag | Description |
 |---|---|
+| `-v`, `--version` | Show version and exit |
 | `-c`, `--config` | Configuration name or path (see [Configuration](#configuration)) |
 | `-p`, `--profile` | Login profile name or path (see [Profiles](#profiles)) |
 | `--create-profile NAME` | Create a login profile interactively (saves to `~/.mud-slop/profiles/`) |

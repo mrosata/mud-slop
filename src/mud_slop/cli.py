@@ -1,13 +1,51 @@
 import argparse
 import curses
+import json
 import sys
+import urllib.request
 
+from mud_slop import __version__
 from mud_slop.app import run_client
 from mud_slop.config import load_config, load_profile, create_profile
 
 
+def _parse_version(v):
+    """Parse version string to comparable tuple of ints."""
+    parts = []
+    for part in v.split("."):
+        try:
+            parts.append(int(part))
+        except ValueError:
+            parts.append(0)
+    return tuple(parts)
+
+
+def check_for_updates():
+    """Check PyPI for a newer version. Prints a message if outdated."""
+    try:
+        if __version__ == "0.0.0.dev":
+            return
+        req = urllib.request.Request(
+            "https://pypi.org/pypi/mud-slop/json",
+            headers={"Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read())
+        latest = data["info"]["version"]
+        if _parse_version(latest) > _parse_version(__version__):
+            print(
+                f"\033[33mUpdate available: {__version__} \u2192 {latest}.\033[0m "
+                f"Run '\033[1mpip install --upgrade mud-slop\033[0m' to update.",
+                file=sys.stderr,
+            )
+    except Exception:
+        pass
+
+
 def main():
     p = argparse.ArgumentParser(description="Curses MUD client")
+    p.add_argument("-v", "--version", action="version",
+                   version=f"%(prog)s {__version__}")
     p.add_argument("-c", "--config", default="default",
                    help="Configuration name or path (searches ~/.mud-slop/configs/, ./configs/, or use full path)")
     p.add_argument("host", nargs="?", default=None,
@@ -60,6 +98,8 @@ def main():
         p.error("host is required (via CLI argument or config file)")
     if not config.connection.port:
         p.error("port is required (via CLI argument or config file)")
+
+    check_for_updates()
 
     curses.wrapper(run_client, config,
                    color=not args.no_color, debug=args.debug,
