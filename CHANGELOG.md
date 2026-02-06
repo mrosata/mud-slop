@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.3...mud-slop-v0.1.4) (2026-02-06)
+
+
+### Documentation
+
+* add releasing section to README ([f392446](https://github.com/mrosata/mud-slop/commit/f392446bab96315e8d21618665c039cbe1f323cb))
+
 ## [0.1.3](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.2...mud-slop-v0.1.3) (2026-02-06)
 
 
