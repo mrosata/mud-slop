@@ -1,7 +1,7 @@
 """Tests for help pager functionality."""
 
 import pytest
-from mud_client.help import HelpTracker, HelpContent
+from mud_slop.help import HelpTracker, HelpContent
 
 
 class TestHelpTags:

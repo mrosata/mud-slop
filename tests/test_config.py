@@ -2,7 +2,7 @@
 
 import pytest
 
-from mud_client.config import (
+from mud_slop.config import (
     parse_simple_yaml,
     load_config,
     get_default_config,
@@ -211,7 +211,7 @@ hooks:
   on_exit:
     - quit
 """
-        from mud_client.config import _merge_config
+        from mud_slop.config import _merge_config
         config = get_default_config()
         data = parse_simple_yaml(yaml)
         _merge_config(config, data)

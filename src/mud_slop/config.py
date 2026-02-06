@@ -399,7 +399,7 @@ class Config:
 def _find_configs_dir() -> Path:
     """Find the configs directory relative to the package or CWD."""
     # Try package directory first
-    pkg_dir = Path(__file__).parent.parent.parent  # src/mud_client -> project root
+    pkg_dir = Path(__file__).parent.parent.parent  # src/mud_slop -> project root
     configs_in_pkg = pkg_dir / "configs"
     if configs_in_pkg.is_dir():
         return configs_in_pkg

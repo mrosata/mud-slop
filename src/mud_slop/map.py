@@ -3,10 +3,10 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from mud_client.ansi import strip_ansi
+from mud_slop.ansi import strip_ansi
 
 if TYPE_CHECKING:
-    from mud_client.config import MapPatterns
+    from mud_slop.config import MapPatterns
 
 
 class MapTracker:

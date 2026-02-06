@@ -7,15 +7,15 @@ import socket
 import time
 from typing import TYPE_CHECKING
 
-from mud_client.constants import (
+from mud_slop.constants import (
     IAC, DO, GMCP, SB, SE,
     TELNET_CMD_NAMES, TELNET_OPT_NAMES, NEGOTIATION_CMDS,
 )
-from mud_client.types import ProtoEvent, safe_text_preview, hex_preview
-from mud_client.telnet import TelnetFilter
+from mud_slop.types import ProtoEvent, safe_text_preview, hex_preview
+from mud_slop.telnet import TelnetFilter
 
 if TYPE_CHECKING:
-    from mud_client.config import GMCPConfig
+    from mud_slop.config import GMCPConfig
 
 
 class MudConnection:

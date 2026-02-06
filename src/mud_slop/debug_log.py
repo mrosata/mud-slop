@@ -1,7 +1,7 @@
 import json
 import time
 
-from mud_client.types import ProtoEvent, ts_str, hex_preview
+from mud_slop.types import ProtoEvent, ts_str, hex_preview
 
 
 class DebugLogger:

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mud_client.config import HelpPatterns
+    from mud_slop.config import HelpPatterns
 
 
 @dataclass

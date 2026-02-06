@@ -1,5 +1,5 @@
 import pytest
-from mud_client.input_buffer import InputBuffer
+from mud_slop.input_buffer import InputBuffer
 
 
 class TestInsertAndBasicState:

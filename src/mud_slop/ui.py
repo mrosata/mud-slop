@@ -3,19 +3,19 @@ from __future__ import annotations
 import curses
 from typing import TYPE_CHECKING
 
-from mud_client.types import ts_str
-from mud_client.ansi import _init_color_pairs, strip_ansi, parse_ansi, _color_pair_id
-from mud_client.gmcp import GMCPHandler
-from mud_client.debug_log import DebugLogger
-from mud_client.history import CommandHistory
-from mud_client.input_buffer import InputBuffer
-from mud_client.conversation import ConversationTracker, DEFAULT_SPEECH_PATTERNS, build_speech_patterns, _wrap_text
-from mud_client.info import InfoTracker
-from mud_client.map import MapTracker
-from mud_client.help import HelpTracker
+from mud_slop.types import ts_str
+from mud_slop.ansi import _init_color_pairs, strip_ansi, parse_ansi, _color_pair_id
+from mud_slop.gmcp import GMCPHandler
+from mud_slop.debug_log import DebugLogger
+from mud_slop.history import CommandHistory
+from mud_slop.input_buffer import InputBuffer
+from mud_slop.conversation import ConversationTracker, DEFAULT_SPEECH_PATTERNS, build_speech_patterns, _wrap_text
+from mud_slop.info import InfoTracker
+from mud_slop.map import MapTracker
+from mud_slop.help import HelpTracker
 
 if TYPE_CHECKING:
-    from mud_client.config import Config
+    from mud_slop.config import Config
 
 
 class MudUI:

@@ -1,11 +1,11 @@
 import queue
 import time
 
-from mud_client.config import Config
-from mud_client.debug_log import DebugLogger
-from mud_client.gmcp import GMCPHandler
-from mud_client.ui import MudUI
-from mud_client.connection import MudConnection
+from mud_slop.config import Config
+from mud_slop.debug_log import DebugLogger
+from mud_slop.gmcp import GMCPHandler
+from mud_slop.ui import MudUI
+from mud_slop.connection import MudConnection
 
 
 def run_client(stdscr, config: Config, color: bool = True,

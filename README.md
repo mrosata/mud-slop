@@ -1,4 +1,4 @@
-# mud-client
+# mud-slop
 
 A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color rendering, and protocol inspection. Built entirely with the Python standard library.
 
@@ -25,14 +25,14 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 ## Installation
 
 ```bash
-git clone <repo-url> && cd mud-client
+git clone <repo-url> && cd mud-slop
 uv sync
 ```
 
 ## Usage
 
 ```bash
-uv run mud-client <host> <port>
+uv run mud-slop <host> <port>
 ```
 
 ### Options
@@ -50,22 +50,22 @@ uv run mud-client <host> <port>
 
 ```bash
 # Connect to Aardwolf using config file
-uv run mud-client -c aardwolf
+uv run mud-slop -c aardwolf
 
 # Connect with explicit host/port (overrides config)
-uv run mud-client aardmud.org 4000
+uv run mud-slop aardmud.org 4000
 
 # With debug logging enabled
-uv run mud-client -c aardwolf --debug
+uv run mud-slop -c aardwolf --debug
 
 # Create a login profile (prompts for username/password)
-uv run mud-client --create-profile mychar
+uv run mud-slop --create-profile mychar
 
 # Auto-login with a profile
-uv run mud-client -c aardwolf -p mychar
+uv run mud-slop -c aardwolf -p mychar
 
 # Override host/port from config
-uv run mud-client -c aardwolf localhost 5000
+uv run mud-slop -c aardwolf localhost 5000
 ```
 
 ### Configuration
@@ -119,13 +119,13 @@ Login profiles are stored in the `profiles/` directory as YAML files. Profile fi
 Create a profile interactively (password input is hidden):
 
 ```bash
-uv run mud-client --create-profile mychar
+uv run mud-slop --create-profile mychar
 ```
 
 Then use it to auto-login:
 
 ```bash
-uv run mud-client -c aardwolf -p mychar
+uv run mud-slop -c aardwolf -p mychar
 ```
 
 The client sends the username after the server's initial prompt and sends the password when the server enters password mode (telnet WILL ECHO). See `profiles/README.md` for details.
@@ -186,10 +186,10 @@ Debug logging (`-d` or `/debug`) writes to `mud_output.log`, `mud_proto.log`, an
 uv sync
 
 # Run via entry point
-uv run mud-client <host> <port>
+uv run mud-slop <host> <port>
 
 # Run via python -m
-uv run python -m mud_client <host> <port>
+uv run python -m mud_slop <host> <port>
 ```
 
 The project has zero runtime dependencies. See `CLAUDE.md` for detailed architecture notes and the module dependency graph.

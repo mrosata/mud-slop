@@ -1,5 +1,5 @@
 [project]
-name = "mud-client"
+name = "mud-slop"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -7,14 +7,14 @@ requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]
-mud-client = "mud_client.cli:main"
+mud-slop = "mud_slop.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mud_client"]
+packages = ["src/mud_slop"]
 
 [dependency-groups]
 dev = [

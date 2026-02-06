@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mud_client.config import InfoPatterns, InfoTimers
+    from mud_slop.config import InfoPatterns, InfoTimers
 
 
 @dataclass

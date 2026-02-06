@@ -2,8 +2,8 @@ import argparse
 import curses
 import sys
 
-from mud_client.app import run_client
-from mud_client.config import load_config, load_profile, create_profile
+from mud_slop.app import run_client
+from mud_slop.config import load_config, load_profile, create_profile
 
 
 def main():

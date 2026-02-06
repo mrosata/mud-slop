@@ -3,8 +3,8 @@
 import pytest
 from typing import List, Optional, Tuple
 
-from mud_client.map import MapTracker
-from mud_client.ansi import strip_ansi
+from mud_slop.map import MapTracker
+from mud_slop.ansi import strip_ansi
 
 
 # --- Helper factories ---

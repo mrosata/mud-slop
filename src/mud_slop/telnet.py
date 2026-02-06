@@ -1,4 +1,4 @@
-from mud_client.constants import (
+from mud_slop.constants import (
     IAC, DONT, DO, WONT, WILL, SB, SE, ECHO, GMCP,
     TELNET_OPT_NAMES, NEGOTIATION_CMDS,
 )

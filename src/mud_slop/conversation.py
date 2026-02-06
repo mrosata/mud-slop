@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mud_client.config import ConversationPattern as ConfigPattern
+    from mud_slop.config import ConversationPattern as ConfigPattern
 
 
 @dataclass
