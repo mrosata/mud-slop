@@ -1,5 +1,7 @@
 # mud-slop
 
+![image](./assets/logo.png)
+
 A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color rendering, and protocol inspection. Built entirely with the Python standard library.
 
 ## Features
@@ -23,6 +25,20 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ## Installation
+
+### From PyPI (recommended)
+
+```bash
+pip install mud-slop
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install mud-slop
+```
+
+### From source
 
 ```bash
 git clone <repo-url> && cd mud-slop
