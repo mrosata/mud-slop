@@ -67,6 +67,8 @@ patterns:
       label: yells
     - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:asks?|exclaims?|questions?),?\\s+(?P<quote>['\"])(?P<message>.+)"
       label: asks
+    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:answers),?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: answers
 
 timers:
   conversation:
