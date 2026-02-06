@@ -42,10 +42,23 @@ class MudUI:
             self.RIGHT_PANEL_RATIO = 0.40
             self.max_output_lines = 5000
 
-        self.output_lines = []   # main text area (full history)
-        self.display_lines = []  # filtered view (conversation lines removed)
+        self.output_lines = []   # main text area (full history, everything)
+        self.display_lines = []  # filtered view (all tracked content removed)
+        self.history_lines = []  # scroll-up view (configurable content visibility)
         self.input_buf = InputBuffer()
         self.history = CommandHistory()
+
+        # History visibility settings (what shows when scrolled up)
+        if config and config.ui and config.ui.history:
+            self.history_show_conversations = config.ui.history.conversations
+            self.history_show_help = config.ui.history.help
+            self.history_show_maps = config.ui.history.maps
+            self.history_show_info = config.ui.history.info
+        else:
+            self.history_show_conversations = True
+            self.history_show_help = False
+            self.history_show_maps = False
+            self.history_show_info = False
 
         # Build trackers with config
         if config:
@@ -73,6 +86,8 @@ class MudUI:
 
         self._skip_next_blank = False
         self._skip_blank_after_speech = False
+        self._skip_next_blank_h = False        # history_lines blank suppression (INFO)
+        self._skip_blank_after_speech_h = False  # history_lines blank suppression (speech)
         self._incomplete_line = ""  # Buffer for incomplete lines (no trailing \n)
 
         # Scroll state: 0 = pinned to bottom (auto-scroll), >0 = lines from bottom
@@ -99,6 +114,13 @@ class MudUI:
         self._display_ansi_underline = False
         self._display_ansi_reverse = False
 
+        # ANSI color state for history_lines (scroll-up view)
+        self._history_ansi_fg = 7
+        self._history_ansi_bg = -1
+        self._history_ansi_bold = False
+        self._history_ansi_underline = False
+        self._history_ansi_reverse = False
+
         curses.curs_set(1)
         if color:
             _init_color_pairs()
@@ -123,19 +145,30 @@ class MudUI:
         return speaker != "You"
 
     def _add_to_display(self, plain: str, line: str):
-        """Route a single line through speech detection into display_lines."""
+        """Route a single line through speech detection into display_lines and history_lines."""
         if self._is_other_speech(plain) and self.conversation.feed_line(plain, line):
             # Speech line consumed - remove preceding blank and skip following blanks
             if self.display_lines and strip_ansi(self.display_lines[-1]).strip() == "":
                 self.display_lines.pop()
             self._skip_blank_after_speech = True
+            # History: add if conversations shown, otherwise suppress blanks
+            if self.history_show_conversations:
+                self.history_lines.append(line)
+            else:
+                if self.history_lines and strip_ansi(self.history_lines[-1]).strip() == "":
+                    self.history_lines.pop()
+                self._skip_blank_after_speech_h = True
         elif self._skip_blank_after_speech and plain.strip() == "":
-            # Swallow blank lines after speech
-            pass
+            # Swallow blank lines after speech (display)
+            # History: only swallow if conversations hidden
+            if not self._skip_blank_after_speech_h:
+                self.history_lines.append(line)
         else:
             self._skip_next_blank = False
             self._skip_blank_after_speech = False
+            self._skip_blank_after_speech_h = False
             self.display_lines.append(line)
+            self.history_lines.append(line)
 
     def add_output_text(self, text: str):
         # Prepend any buffered incomplete line from previous chunk
@@ -153,12 +186,11 @@ class MudUI:
         elif lines:
             # Last line is incomplete (no trailing \n) — buffer it
             self._incomplete_line = lines.pop()
-        added = 0
+        history_len_before = len(self.history_lines)
         for line in lines:
             if not self.color_enabled:
                 line = strip_ansi(line)
             self.output_lines.append(line)
-            added += 1
 
             # Check for INFO channel messages, then map, then speech patterns
             plain = strip_ansi(line)
@@ -169,16 +201,28 @@ class MudUI:
                 # Also remove preceding blank line if present
                 if self.display_lines and strip_ansi(self.display_lines[-1]).strip() == "":
                     self.display_lines.pop()
+                # History: add if info shown, otherwise suppress blanks
+                if self.history_show_info:
+                    self.history_lines.append(line)
+                else:
+                    self._skip_next_blank_h = True
+                    if self.history_lines and strip_ansi(self.history_lines[-1]).strip() == "":
+                        self.history_lines.pop()
             elif self._skip_next_blank and plain.strip() == "":
                 # Swallow blank lines that follow an INFO message (keep skipping until content)
-                pass
+                # History: only swallow if info hidden
+                if not self._skip_next_blank_h:
+                    self.history_lines.append(line)
             else:
                 # Reset the skip flag when we see actual content
                 self._skip_next_blank = False
+                self._skip_next_blank_h = False
                 # Help detection - check for {help}/{/help} tags
                 help_consumed, _ = self.help_tracker.feed_line(plain, line)
                 if help_consumed:
-                    pass  # Help line held in tracker
+                    # History: add if help shown
+                    if self.history_show_help:
+                        self.history_lines.append(line)
                 else:
                     # Map detection — may consume line or return overflow
                     consumed, overflow = self.map_tracker.feed_line(plain, line)
@@ -186,27 +230,33 @@ class MudUI:
                         ov_plain = strip_ansi(ov_raw)
                         self._add_to_display(ov_plain, ov_raw)
                     if consumed:
-                        pass  # Map line held in accumulator
+                        # History: add if maps shown
+                        if self.history_show_maps:
+                            self.history_lines.append(line)
                     else:
                         self._add_to_display(plain, line)
 
-        # Keep scroll position stable when scrolled up
+        # Keep scroll position stable when scrolled up (based on history_lines)
+        history_added = len(self.history_lines) - history_len_before
         if self._output_scroll > 0:
-            self._output_scroll += added
+            self._output_scroll += history_added
+        # Trim all buffers
         if len(self.output_lines) > self.max_output_lines:
-            trimmed = len(self.output_lines) - self.max_output_lines
             self.output_lines = self.output_lines[-self.max_output_lines:]
-            if self._output_scroll > 0:
-                self._output_scroll = max(0, self._output_scroll - trimmed)
-        # Trim display_lines to same limit
         if len(self.display_lines) > self.max_output_lines:
             self.display_lines = self.display_lines[-self.max_output_lines:]
+        if len(self.history_lines) > self.max_output_lines:
+            trimmed = len(self.history_lines) - self.max_output_lines
+            self.history_lines = self.history_lines[-self.max_output_lines:]
+            if self._output_scroll > 0:
+                self._output_scroll = max(0, self._output_scroll - trimmed)
 
     def add_system_message(self, text: str):
         """Add a system message to the output pane."""
         line = f"-- {text} --"
         self.output_lines.append(line)
         self.display_lines.append(line)
+        self.history_lines.append(line)
 
     def _has_stats(self) -> bool:
         return bool(self.gmcp_handler and self.gmcp_handler.vitals)
@@ -316,6 +366,11 @@ class MudUI:
                 bold = self._display_ansi_bold
                 underline = self._display_ansi_underline
                 reverse = self._display_ansi_reverse
+            elif state_key == "history":
+                fg, bg = self._history_ansi_fg, self._history_ansi_bg
+                bold = self._history_ansi_bold
+                underline = self._history_ansi_underline
+                reverse = self._history_ansi_reverse
             else:
                 fg, bg = self._ansi_fg, self._ansi_bg
                 bold, underline, reverse = self._ansi_bold, self._ansi_underline, self._ansi_reverse
@@ -343,6 +398,12 @@ class MudUI:
                 self._display_ansi_bold = bold
                 self._display_ansi_underline = underline
                 self._display_ansi_reverse = reverse
+            elif state_key == "history":
+                self._history_ansi_fg = fg
+                self._history_ansi_bg = bg
+                self._history_ansi_bold = bold
+                self._history_ansi_underline = underline
+                self._history_ansi_reverse = reverse
             else:
                 self._ansi_fg = fg
                 self._ansi_bg = bg
@@ -985,13 +1046,14 @@ class MudUI:
         self._output_h = out_win.getmaxyx()[0]
 
         # Dual-view: when at scroll=0 and not in full history mode, show filtered
-        # display_lines. When scrolled or in full history mode, show output_lines.
+        # display_lines. When scrolled or in full history mode, show history_lines
+        # (with configurable content visibility).
         if self._output_scroll == 0 and not self._show_full_history:
             view_lines = self.display_lines
             view_state_key = "display"
         else:
-            view_lines = self.output_lines
-            view_state_key = "output"
+            view_lines = self.history_lines
+            view_state_key = "history"
 
         if self.color_enabled:
             self._draw_colored_text(out_win, view_lines, self._output_scroll,
@@ -1101,6 +1163,9 @@ class MudUI:
             "  /clear       clear output pane",
             "  /debug       toggle debug logging to mud_*.log",
             "  /info        show info message history",
+            "  /history     show history visibility settings",
+            "  /history <type> [on|off]  toggle what shows when scrolled up",
+            "               types: conversations, help, maps, info",
             "",
             "Notes:",
             "  Debug mode (-d or /debug) logs to mud_*.log files.",
@@ -1108,7 +1173,8 @@ class MudUI:
             "  GMCP-capable servers will show a stats pane on the right.",
             "  Speech lines (says/tells/whispers) appear in a conversation",
             "  overlay and are filtered from the main feed. Scroll up to",
-            "  see the full unfiltered history.",
+            "  see history (conversations shown by default).",
+            "  Use /history to configure what content appears when scrolled.",
             "  INFO channel messages appear in a ticker bar above the input",
             "  line and are also viewable via /info.",
             "  ASCII maps from room displays are auto-detected and shown",
@@ -1148,7 +1214,7 @@ class MudUI:
             return
         # Already in full history mode: actually scroll up
         page = max(1, self._output_h - 1)
-        max_off = max(0, len(self.output_lines) - self._output_h)
+        max_off = max(0, len(self.history_lines) - self._output_h)
         self._output_scroll = min(self._output_scroll + page, max_off)
 
     def _scroll_down(self):
@@ -1162,7 +1228,7 @@ class MudUI:
 
     def _scroll_to_top(self):
         self._show_full_history = True
-        self._output_scroll = max(0, len(self.output_lines) - self._output_h)
+        self._output_scroll = max(0, len(self.history_lines) - self._output_h)
 
     def _scroll_to_bottom(self):
         self._output_scroll = 0
@@ -1328,26 +1394,44 @@ class MudUI:
         """Dump info message history into the output pane."""
         history = self.info_tracker.history
         if not history:
-            self.display_lines.append("-- No info messages --")
-            self.output_lines.append("-- No info messages --")
+            msg = "-- No info messages --"
+            self.display_lines.append(msg)
+            self.output_lines.append(msg)
+            self.history_lines.append(msg)
             return
-        self.display_lines.append("-- Info History --")
-        self.output_lines.append("-- Info History --")
+        header = "-- Info History --"
+        self.display_lines.append(header)
+        self.output_lines.append(header)
+        self.history_lines.append(header)
         for entry in history:
             line = f"  {ts_str(entry.timestamp)} | {entry.text}"
             self.display_lines.append(line)
             self.output_lines.append(line)
-        self.display_lines.append("-- End Info History --")
-        self.output_lines.append("-- End Info History --")
+            self.history_lines.append(line)
+        footer = "-- End Info History --"
+        self.display_lines.append(footer)
+        self.output_lines.append(footer)
+        self.history_lines.append(footer)
+
+    def history_settings_text(self) -> str:
+        """Return a summary of current history visibility settings."""
+        def on_off(v): return "on" if v else "off"
+        return (f"conversations={on_off(self.history_show_conversations)}, "
+                f"help={on_off(self.history_show_help)}, "
+                f"maps={on_off(self.history_show_maps)}, "
+                f"info={on_off(self.history_show_info)}")
 
     def clear(self):
         self.output_lines = []
         self.display_lines = []
+        self.history_lines = []
         self._incomplete_line = ""
         self._output_scroll = 0
         self._show_full_history = False
         self._skip_next_blank = False
         self._skip_blank_after_speech = False
+        self._skip_next_blank_h = False
+        self._skip_blank_after_speech_h = False
         self.conversation.dismiss()
         self.info_tracker.current = None
         self.info_tracker._queue.clear()

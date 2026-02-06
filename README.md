@@ -13,7 +13,7 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 - **Map pane** — ASCII maps are extracted using `<MAPSTART>`/`<MAPEND>` tags, room descriptions via `{rdesc}`/`{/rdesc}` tags, and rendered in a fixed panel on the right side of the screen showing room name, coords, map, exits, and word-wrapped description
 - **Help pager** — help content wrapped in `{help}`/`{/help}` tags is displayed in a scrollable overlay with paging controls (PgUp/PgDn/Home/End/ESC), allowing users to read help while still typing commands
 - **Debug logging** — writes output, protocol, and GMCP streams to log files
-- **Scrollback** — Page Up/Down to scroll through history; full unfiltered history available when scrolled up
+- **Scrollback** — Page Up/Down to scroll through history; configurable content visibility when scrolled up (conversations shown by default, help/maps/info hidden; toggle with `/history`)
 - **Command history** — Up/Down arrows with prefix filtering
 - **Line editing** — Left/Right arrows, Ctrl+A/E (home/end), Ctrl+Left/Right (word jump), Ctrl+W/U/K (kill word/to-start/to-end), Delete key
 - **Password masking** — input is hidden when the server signals password mode (via telnet WILL ECHO)
@@ -122,6 +122,9 @@ timers:
 ui:
   right_panel_max_width: 70
   max_output_lines: 5000
+  history:
+    conversations: true
+    help: false
 
 hooks:
   # Commands to run after login (when GMCP vitals first arrive)
@@ -168,6 +171,8 @@ The client sends the username after the server's initial prompt and sends the pa
 | `/clear` | Clear output pane (and conversation, map, ticker) |
 | `/debug` | Toggle debug logging on/off at runtime |
 | `/info` | Show timestamped info message history |
+| `/history` | Show history visibility settings |
+| `/history <type> [on\|off]` | Toggle what shows when scrolled up (types: conversations, help, maps, info) |
 
 Everything else typed at the prompt is sent to the server.
 
@@ -205,7 +210,7 @@ The UI has up to five regions:
 - **Info ticker** — single-row bar above the input line showing `INFO:` channel messages
 - **Input line** — command entry with `> ` prompt
 
-The conversation overlay draws on top of the output pane. The map pane is a fixed panel on the right side of the screen (below the stats pane if both are present), and is hidden while the conversation overlay is visible. Scrolling up reveals the full unfiltered history including speech, info, and map lines.
+The conversation overlay draws on top of the output pane. The map pane is a fixed panel on the right side of the screen (below the stats pane if both are present), and is hidden while the conversation overlay is visible. Scrolling up reveals history with configurable content visibility — by default only conversation lines are included. Use `/history` to toggle what appears (conversations, help, maps, info).
 
 Debug logging (`-d` or `/debug`) writes to `mud_output.log`, `mud_proto.log`, and `mud_gmcp.log` in the current directory.
 

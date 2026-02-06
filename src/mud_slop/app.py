@@ -8,6 +8,47 @@ from mud_slop.ui import MudUI
 from mud_slop.connection import MudConnection
 
 
+_HISTORY_TYPES = {
+    "conversations": "history_show_conversations",
+    "conversation": "history_show_conversations",
+    "conv": "history_show_conversations",
+    "help": "history_show_help",
+    "maps": "history_show_maps",
+    "map": "history_show_maps",
+    "info": "history_show_info",
+}
+
+
+def _handle_history_cmd(ui: "MudUI", line: str):
+    """Handle /history command for viewing/toggling history visibility."""
+    parts = line.split()
+    # /history — show current settings
+    if len(parts) == 1:
+        ui.add_system_message(f"History visibility: {ui.history_settings_text()}")
+        return
+    type_name = parts[1].lower()
+    attr = _HISTORY_TYPES.get(type_name)
+    if attr is None:
+        valid = "conversations, help, maps, info"
+        ui.add_system_message(f"Unknown type '{parts[1]}'. Valid: {valid}")
+        return
+    # /history <type> on|off — explicit set
+    if len(parts) >= 3:
+        val = parts[2].lower()
+        if val in ("on", "true", "yes", "1"):
+            setattr(ui, attr, True)
+        elif val in ("off", "false", "no", "0"):
+            setattr(ui, attr, False)
+        else:
+            ui.add_system_message(f"Invalid value '{parts[2]}'. Use on/off.")
+            return
+    else:
+        # /history <type> — toggle
+        setattr(ui, attr, not getattr(ui, attr))
+    state = "ON" if getattr(ui, attr) else "OFF"
+    ui.add_system_message(f"History {type_name}: {state} (affects new lines)")
+
+
 def run_client(stdscr, config: Config, color: bool = True,
                debug: bool = False, conv_pos: str = "bottom-right"):
     proto_q: "queue.Queue[ProtoEvent]" = queue.Queue()
@@ -128,6 +169,8 @@ def run_client(stdscr, config: Config, color: bool = True,
                     ui.clear()
                 elif line.strip().lower() == "/info":
                     ui.show_info_history()
+                elif line.strip().lower().startswith("/history"):
+                    _handle_history_cmd(ui, line.strip())
                 else:
                     conn.send_line(line)
                     if not conn.echo_off:

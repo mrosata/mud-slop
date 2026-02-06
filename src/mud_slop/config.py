@@ -401,11 +401,21 @@ class TimersConfig:
 
 
 @dataclass
+class HistoryConfig:
+    """What content types to show when scrolling up into history mode."""
+    conversations: bool = True
+    help: bool = False
+    maps: bool = False
+    info: bool = False
+
+
+@dataclass
 class UIConfig:
     """UI layout configuration."""
     right_panel_max_width: int = 70
     right_panel_ratio: float = 0.40
     max_output_lines: int = 5000
+    history: HistoryConfig = field(default_factory=HistoryConfig)
 
 
 @dataclass
@@ -641,6 +651,16 @@ def _merge_config(config: Config, data: dict):
             config.ui.right_panel_ratio = float(ui['right_panel_ratio'])
         if 'max_output_lines' in ui:
             config.ui.max_output_lines = int(ui['max_output_lines'])
+        if 'history' in ui and isinstance(ui['history'], dict):
+            h = ui['history']
+            if 'conversations' in h:
+                config.ui.history.conversations = bool(h['conversations'])
+            if 'help' in h:
+                config.ui.history.help = bool(h['help'])
+            if 'maps' in h:
+                config.ui.history.maps = bool(h['maps'])
+            if 'info' in h:
+                config.ui.history.info = bool(h['info'])
 
     # Hooks
     if 'hooks' in data and isinstance(data['hooks'], dict):

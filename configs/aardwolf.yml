@@ -84,6 +84,14 @@ ui:
   right_panel_ratio: 0.40
   max_output_lines: 5000
 
+  # What content to show when scrolling up into history mode
+  # Toggle at runtime with /history <type> on|off
+  history:
+    conversations: true
+    help: false
+    maps: false
+    info: false
+
 # Aardwolf-specific command hooks
 hooks:
   # Commands to run after login (when GMCP vitals first arrive)
