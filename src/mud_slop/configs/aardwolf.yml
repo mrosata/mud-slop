@@ -57,17 +57,19 @@ patterns:
     tags: '\{helptags\}(.*)$'
 
   conversation:
-    - pattern: "^(?P<speaker>[\\w'-]+)\\s+says?,?\\s+(?P<quote>['\"])(?P<message>.+)"
+    - pattern: "^(?P<speaker>[\\w'-]+(?:\\s+[\\w'-]+)*?)\\s+says?,?\\s+(?P<quote>['\"])(?P<message>.+)"
       label: says
-    - pattern: "^(?P<speaker>[\\w'-]+)\\s+tells?\\s+you,?\\s+(?P<quote>['\"])(?P<message>.+)"
+    - pattern: "^(?P<speaker>[\\w'-]+(?:\\s+[\\w'-]+)*?)\\s+tells?\\s+you,?\\s+(?P<quote>['\"])(?P<message>.+)"
       label: tells
-    - pattern: "^(?P<speaker>[\\w'-]+)\\s+whispers?,?\\s+(?P<quote>['\"])(?P<message>.+)"
+    - pattern: "^(?P<speaker>[\\w'-]+(?:\\s+[\\w'-]+)*?)\\s+whispers?,?\\s+(?P<quote>['\"])(?P<message>.+)"
       label: whispers
-    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:yells?|shouts?),?\\s+(?P<quote>['\"])(?P<message>.+)"
+    - pattern: "^(?P<speaker>[\\w'-]+(?:\\s+[\\w'-]+)*?)\\s+(?:yells?|shouts?),?\\s+(?P<quote>['\"])(?P<message>.+)"
       label: yells
-    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:asks?|exclaims?|questions?),?\\s+(?P<quote>['\"])(?P<message>.+)"
+    - pattern: "^(?P<speaker>[\\w'-]+(?:\\s+[\\w'-]+)*?)\\s+(?:asks?|questions?),?\\s+(?P<quote>['\"])(?P<message>.+)"
       label: asks
-    - pattern: "^(?P<speaker>[\\w'-]+)\\s+(?:answers),?\\s+(?P<quote>['\"])(?P<message>.+)"
+    - pattern: "^(?P<speaker>[\\w'-]+(?:\\s+[\\w'-]+)*?)\\s+(?:exclaims?),?\\s+(?P<quote>['\"])(?P<message>.+)"
+      label: exclaims
+    - pattern: "^(?P<speaker>[\\w'-]+(?:\\s+[\\w'-]+)*?)\\s+(?:answers),?\\s+(?P<quote>['\"])(?P<message>.+)"
       label: answers
 
 timers:
