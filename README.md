@@ -10,14 +10,13 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 - **GMCP support** — negotiates with Aardwolf-style servers and displays HP/Mana/Moves bars and character attributes in a stats pane
 - **Conversation overlay** — speech lines (says, tells, whispers, yells, asks) are captured and shown in a navigable overlay panel
 - **Info ticker** — `INFO:` channel messages display in a ticker bar above the input line
-- **Map pane** — ASCII maps are extracted using `<MAPSTART>`/`<MAPEND>` tags, room descriptions via `{rdesc}`/`{/rdesc}` tags, and rendered in a fixed panel on the right side of the screen showing room name, coords, map, exits, and word-wrapped description
-- **Help pager** — help content wrapped in `{help}`/`{/help}` tags is displayed in a scrollable overlay with paging controls (PgUp/PgDn/Home/End/ESC), allowing users to read help while still typing commands
+- **Map pane** — ASCII maps, room descriptions are extracted using configurable pattern matching (ie: `<MAPSTART>/<MAPEND>` or `{rdesc}{/rdesc}` tags), and rendered in a fixed panel on the right side of the screen showing room name, coords, map, exits, and word-wrapped description
+- **Help pager** — help content wrapped in `{help}`/`{/help}` tags, _(unless configured otherwise)_, is displayed in a scrollable overlay with paging controls (PgUp/PgDn/Home/End/ESC), allowing users to read help while still typing commands
 - **Debug logging** — writes output, protocol, and GMCP streams to log files
 - **Scrollback** — Page Up/Down to scroll through history; configurable content visibility when scrolled up (conversations shown by default, help/maps/info hidden; toggle with `/history`)
 - **Command history** — Up/Down arrows with prefix filtering
 - **Line editing** — Left/Right arrows, Ctrl+A/E (home/end), Ctrl+Left/Right (word jump), Ctrl+W/U/K (kill word/to-start/to-end), Delete key
-- **Password masking** — input is hidden when the server signals password mode (via telnet WILL ECHO)
-- **Auto-login profiles** — store credentials in gitignored YAML profiles (`profiles/<name>.yml`) and use `-p <name>` to log in automatically
+- **Auto-login profiles** — store credentials in YAML profile files (`~/.mud-slop/profiles/<name>.yml`, `./profiles/<name>.yml`) and use `-p <name>` to log in automatically. 
 
 ## Requirements
 
@@ -30,12 +29,16 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 
 ```bash
 pip install mud-slop
+# Check install
+mud-slop --version
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv tool install mud-slop
+# Check install
+mud-slop --version
 ```
 
 ### From source
@@ -43,19 +46,31 @@ uv tool install mud-slop
 ```bash
 git clone <repo-url> && cd mud-slop
 uv sync
+# Check install
+uv run mud-slop --version
 ```
 
 ## Usage
 
+**Using a config**
+Currently we only support `aardwolf` as a config
 ```bash
-uv run mud-slop <host> <port>
+# mud-slop <host> <port>
+mud-slop <host> <port>
+# mud-slop -c <profile>
+mud-slop -c aardwolf
+```
+
+**Using host and port explicitly**
+```bash
+# mud-slop <host> <port>
+mud-slop 23.111.142.226 4000
 ```
 
 ### Options
 
 | Flag | Description |
 |---|---|
-| `-v`, `--version` | Show version and exit |
 | `-c`, `--config` | Configuration name or path (see [Configuration](#configuration)) |
 | `-p`, `--profile` | Login profile name or path (see [Profiles](#profiles)) |
 | `--create-profile NAME` | Create a login profile interactively (saves to `~/.mud-slop/profiles/`) |
