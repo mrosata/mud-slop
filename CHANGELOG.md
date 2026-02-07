@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.6...mud-slop-v0.1.7) (2026-02-07)
+
+
+### Bug Fixes
+
+* support multi-word speakers in conversation patterns ([#14](https://github.com/mrosata/mud-slop/issues/14)) ([d234c7c](https://github.com/mrosata/mud-slop/commit/d234c7c902d692ce230b24f687447ae2734d1809))
+
 ## [0.1.6](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.5...mud-slop-v0.1.6) (2026-02-07)
 
 
