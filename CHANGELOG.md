@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.5...mud-slop-v0.1.6) (2026-02-07)
+
+
+### Bug Fixes
+
+* bundle config files in PyPI package ([#12](https://github.com/mrosata/mud-slop/issues/12)) ([e485dee](https://github.com/mrosata/mud-slop/commit/e485dee6e87abf6345d82d4e2f1957facfe19c55))
+
 ## [0.1.5](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.4...mud-slop-v0.1.5) (2026-02-06)
 
 
