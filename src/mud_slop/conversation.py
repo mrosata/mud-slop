@@ -166,11 +166,11 @@ class ConversationTracker:
 
 
 DEFAULT_SPEECH_PATTERNS = [
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+)\s+says?,?\s+(?P<quote>['\"])(?P<message>.+)"), "says"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+)\s+tells?\s+you,?\s+(?P<quote>['\"])(?P<message>.+)"), "tells"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+)\s+whispers?,?\s+(?P<quote>['\"])(?P<message>.+)"), "whispers"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+)\s+(?:yells?|shouts?),?\s+(?P<quote>['\"])(?P<message>.+)"), "yells"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+)\s+(?:asks?|exclaims?|questions?),?\s+(?P<quote>['\"])(?P<message>.+)"), "asks"),
+    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+says?,?\s+(?P<quote>['\"])(?P<message>.+)"), "says"),
+    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+tells?\s+you,?\s+(?P<quote>['\"])(?P<message>.+)"), "tells"),
+    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+whispers?,?\s+(?P<quote>['\"])(?P<message>.+)"), "whispers"),
+    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+(?:yells?|shouts?),?\s+(?P<quote>['\"])(?P<message>.+)"), "yells"),
+    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+(?:asks?|exclaims?|questions?),?\s+(?P<quote>['\"])(?P<message>.+)"), "asks"),
 ]
 
 
