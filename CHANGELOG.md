@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.7...mud-slop-v0.1.8) (2026-02-11)
+
+
+### Bug Fixes
+
+* add mouse wheel scrolling support ([2251e70](https://github.com/mrosata/mud-slop/commit/2251e7051224330bf7526b6a3f512a6c2949f472))
+
 ## [0.1.7](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.6...mud-slop-v0.1.7) (2026-02-07)
 
 
