@@ -207,7 +207,8 @@ Everything else typed at the prompt is sent to the server.
 | Ctrl+U | Delete to start of line |
 | Ctrl+K | Delete to end of line |
 | Up / Down | Navigate command history |
-| Page Up / Page Down | Scroll output (or help pager when open) |
+| Page Up / Page Down | Scroll output by page (or help pager when open) |
+| Mouse scroll | Scroll output by 3 lines (or help pager when open) |
 | Home / End | Jump to top/bottom of scrollback (or help pager when open) |
 | Shift+Right / Shift+Left | Navigate conversation entries |
 | Escape | Dismiss conversation overlay or help pager |

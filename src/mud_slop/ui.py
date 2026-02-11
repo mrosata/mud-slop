@@ -129,6 +129,11 @@ class MudUI:
             curses.use_default_colors()
         self.stdscr.timeout(25)
         self.stdscr.keypad(True)
+        # Enable mouse events; on macOS ncurses, scroll-down (0x08000000)
+        # falls outside ALL_MOUSE_EVENTS (0x7ffffff), so OR it in explicitly.
+        _SCROLL_DOWN = getattr(curses, 'BUTTON5_PRESSED', 0x08000000)
+        curses.mousemask(curses.ALL_MOUSE_EVENTS | _SCROLL_DOWN)
+        self._BUTTON5_PRESSED = _SCROLL_DOWN
 
     def _is_other_speech(self, plain: str) -> bool:
         """Return True if the line is speech from someone other than 'You'.
@@ -1147,7 +1152,8 @@ class MudUI:
             "  Ctrl+U       delete to start of line",
             "  Ctrl+K       delete to end of line",
             "  Up/Down      cycle through command history",
-            "  PgUp/PgDn    scroll output",
+            "  PgUp/PgDn    scroll output (page)",
+            "  Mouse wheel  scroll output (3 lines)",
             "  Home/End     jump to top/bottom of scrollback",
             "  Shift+Right  next conversation entry",
             "  Shift+Left   previous conversation entry",
@@ -1226,6 +1232,21 @@ class MudUI:
         page = max(1, self._output_h - 1)
         self._output_scroll = max(0, self._output_scroll - page)
 
+    def _scroll_lines_up(self, n: int = 3):
+        """Scroll up by n lines (for mouse wheel)."""
+        if self._output_scroll == 0 and not self._show_full_history:
+            self._show_full_history = True
+            return
+        max_off = max(0, len(self.history_lines) - self._output_h)
+        self._output_scroll = min(self._output_scroll + n, max_off)
+
+    def _scroll_lines_down(self, n: int = 3):
+        """Scroll down by n lines (for mouse wheel)."""
+        if self._output_scroll == 0 and self._show_full_history:
+            self._show_full_history = False
+            return
+        self._output_scroll = max(0, self._output_scroll - n)
+
     def _scroll_to_top(self):
         self._show_full_history = True
         self._output_scroll = max(0, len(self.history_lines) - self._output_h)
@@ -1241,6 +1262,27 @@ class MudUI:
 
         if ch == curses.KEY_F1:
             self._help_mode = not self._help_mode
+            return None, False
+
+        # Mouse scroll wheel
+        if ch == curses.KEY_MOUSE:
+            try:
+                _, _, _, _, bstate = curses.getmouse()
+            except curses.error:
+                return None, False
+            if bstate & curses.BUTTON4_PRESSED:  # scroll up
+                if self.help_tracker.visible:
+                    self.help_tracker.scroll_up(3)
+                else:
+                    self._scroll_lines_up(3)
+            elif bstate & self._BUTTON5_PRESSED:  # scroll down
+                if self.help_tracker.visible:
+                    screen_h, _ = self.stdscr.getmaxyx()
+                    pager_h = min(max(self.HELP_MIN_HEIGHT, screen_h - 4), screen_h - 2)
+                    visible_h = max(1, pager_h - 4)
+                    self.help_tracker.scroll_down(3, visible_h)
+                else:
+                    self._scroll_lines_down(3)
             return None, False
 
         # Help pager captures paging keys when visible
