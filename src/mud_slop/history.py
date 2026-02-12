@@ -4,9 +4,9 @@ class CommandHistory:
     def __init__(self, max_size: int = 1000):
         self._history: list[str] = []
         self._max_size = max_size
-        self._index = -1       # -1 means not browsing
-        self._saved_input = "" # input buffer before browsing started
-        self._prefix = ""      # prefix filter locked when browsing starts
+        self._index = -1  # -1 means not browsing
+        self._saved_input = ""  # input buffer before browsing started
+        self._prefix = ""  # prefix filter locked when browsing starts
 
     def add(self, cmd: str):
         """Add a command to history. Skip empty and consecutive duplicates."""
@@ -16,7 +16,7 @@ class CommandHistory:
             return
         self._history.append(cmd)
         if len(self._history) > self._max_size:
-            self._history = self._history[-self._max_size:]
+            self._history = self._history[-self._max_size :]
         self.reset()
 
     def reset(self):

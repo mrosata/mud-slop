@@ -1,7 +1,6 @@
 """Tests for help pager functionality."""
 
-import pytest
-from mud_slop.help import HelpTracker, HelpContent
+from mud_slop.help import HelpContent, HelpTracker
 
 
 class TestHelpTags:
@@ -35,11 +34,17 @@ class TestHelpTags:
         tracker = HelpTracker()
         lines = [
             ("{help}", "{help}"),
-            ("----------------------------------------------------------------------------", "----------------------------------------------------------------------------"),
+            (
+                "----------------------------------------------------------------------------",
+                "----------------------------------------------------------------------------",
+            ),
             ("{helpkeywords}Help Keywords : Stats.", "{helpkeywords}Help Keywords : Stats."),
             ("Help Category : Information.", "Help Category : Information."),
             ("Related Helps : Foo, Bar.", "Related Helps : Foo, Bar."),
-            ("----------------------------------------------------------------------------", "----------------------------------------------------------------------------"),
+            (
+                "----------------------------------------------------------------------------",
+                "----------------------------------------------------------------------------",
+            ),
             ("{helpbody}", "{helpbody}"),
             ("Body content here.", "Body content here."),
             ("{/helpbody}", "{/helpbody}"),

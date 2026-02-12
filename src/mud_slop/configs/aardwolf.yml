@@ -98,6 +98,9 @@ ui:
 hooks:
   # Commands to run after login (when GMCP vitals first arrive)
   post_login:
+    - tags bigmap on
+    - tags coords on
+    - tags help on
     - map
     - look
 

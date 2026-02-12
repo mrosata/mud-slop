@@ -1,12 +1,8 @@
 """Tests for configuration loading and YAML parsing."""
 
-import pytest
-
 from mud_slop.config import (
-    parse_simple_yaml,
-    load_config,
     get_default_config,
-    Config,
+    parse_simple_yaml,
 )
 
 
@@ -66,12 +62,7 @@ connection:
   port: 4000
 """
         result = parse_simple_yaml(yaml)
-        assert result == {
-            "connection": {
-                "host": "localhost",
-                "port": 4000
-            }
-        }
+        assert result == {"connection": {"host": "localhost", "port": 4000}}
 
     def test_simple_list(self):
         yaml = """
@@ -95,7 +86,7 @@ patterns:
         assert result == {
             "patterns": [
                 {"pattern": "^test$", "label": "test"},
-                {"pattern": "^other$", "label": "other"}
+                {"pattern": "^other$", "label": "other"},
             ]
         }
 
@@ -107,22 +98,14 @@ level1:
       value: deep
 """
         result = parse_simple_yaml(yaml)
-        assert result == {
-            "level1": {
-                "level2": {
-                    "level3": {
-                        "value": "deep"
-                    }
-                }
-            }
-        }
+        assert result == {"level1": {"level2": {"level3": {"value": "deep"}}}}
 
     def test_special_characters_in_value(self):
         yaml = r"""
 pattern: '^\s*\[?\s*Exits:\s*.*\]?\s*$'
 """
         result = parse_simple_yaml(yaml)
-        assert result["pattern"] == r'^\s*\[?\s*Exits:\s*.*\]?\s*$'
+        assert result["pattern"] == r"^\s*\[?\s*Exits:\s*.*\]?\s*$"
 
     def test_comments_before_nested_content(self):
         """Comments between key and nested content should be skipped."""
@@ -134,11 +117,7 @@ hooks:
     - look
 """
         result = parse_simple_yaml(yaml)
-        assert result == {
-            "hooks": {
-                "post_login": ["map", "look"]
-            }
-        }
+        assert result == {"hooks": {"post_login": ["map", "look"]}}
 
 
 class TestLoadConfig:
@@ -159,8 +138,8 @@ class TestLoadConfig:
 
     def test_default_patterns(self):
         config = get_default_config()
-        assert config.patterns.map.start_tag == r'<MAPSTART>'
-        assert config.patterns.info.prefix == r'^INFO:\s+'
+        assert config.patterns.map.start_tag == r"<MAPSTART>"
+        assert config.patterns.info.prefix == r"^INFO:\s+"
 
     def test_default_timers(self):
         config = get_default_config()
@@ -212,6 +191,7 @@ hooks:
     - quit
 """
         from mud_slop.config import _merge_config
+
         config = get_default_config()
         data = parse_simple_yaml(yaml)
         _merge_config(config, data)

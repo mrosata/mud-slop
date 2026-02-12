@@ -1,6 +1,15 @@
 from mud_slop.constants import (
-    IAC, DONT, DO, WONT, WILL, SB, SE, ECHO, GMCP,
-    TELNET_OPT_NAMES, NEGOTIATION_CMDS,
+    DO,
+    DONT,
+    ECHO,
+    GMCP,
+    IAC,
+    NEGOTIATION_CMDS,
+    SB,
+    SE,
+    TELNET_OPT_NAMES,
+    WILL,
+    WONT,
 )
 
 
@@ -40,7 +49,8 @@ class TelnetFilter:
                         if self._sb_opt == GMCP:
                             gmcp_payloads.append(bytes(self._sb_buf))
                             opt_name = TELNET_OPT_NAMES.get(self._sb_opt, str(self._sb_opt))
-                            notes.append(f"IAC SE (end {opt_name} subneg, {len(self._sb_buf)} bytes)".encode())
+                            sb_len = len(self._sb_buf)
+                            notes.append(f"IAC SE (end {opt_name} subneg, {sb_len} bytes)".encode())
                         else:
                             notes.append(b"IAC SE (end subnegotiation)")
                         self._sb_mode = False
@@ -93,7 +103,9 @@ class TelnetFilter:
                 if cmd == WILL:
                     if opt == GMCP:
                         resp += bytes([IAC, DO, opt])
-                        notes.append(bytes([IAC, WILL, opt]) + b" -> IAC DO " + bytes([opt]) + b" (GMCP)")
+                        notes.append(
+                            bytes([IAC, WILL, opt]) + b" -> IAC DO " + bytes([opt]) + b" (GMCP)"
+                        )
                     else:
                         if opt == ECHO:
                             self.echo_off = True
@@ -102,7 +114,9 @@ class TelnetFilter:
                 elif cmd == DO:
                     if opt == GMCP:
                         resp += bytes([IAC, WILL, opt])
-                        notes.append(bytes([IAC, DO, opt]) + b" -> IAC WILL " + bytes([opt]) + b" (GMCP)")
+                        notes.append(
+                            bytes([IAC, DO, opt]) + b" -> IAC WILL " + bytes([opt]) + b" (GMCP)"
+                        )
                     else:
                         resp += bytes([IAC, WONT, opt])
                         notes.append(bytes([IAC, DO, opt]) + b" -> IAC WONT " + bytes([opt]))

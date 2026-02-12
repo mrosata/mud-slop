@@ -13,19 +13,20 @@ if TYPE_CHECKING:
 @dataclass
 class HelpContent:
     """Parsed help content from {help}/{/help} block."""
-    title: str                        # From first non-tag line or "Help"
+
+    title: str  # From first non-tag line or "Help"
     header_lines: list[str] = field(default_factory=list)  # Lines before {helpbody} (metadata)
-    body_lines: list[str] = field(default_factory=list)    # Raw ANSI lines from {helpbody}
-    tags: list[str] = field(default_factory=list)          # Keywords from {helptags}
+    body_lines: list[str] = field(default_factory=list)  # Raw ANSI lines from {helpbody}
+    tags: list[str] = field(default_factory=list)  # Keywords from {helptags}
 
 
 class HelpTracker:
     """Detects and displays help content using {help}/{/help} tags."""
 
     # Always needed for cleanup
-    _HELPKEYWORDS_RE = re.compile(r'\{helpkeywords\}')
+    _HELPKEYWORDS_RE = re.compile(r"\{helpkeywords\}")
 
-    def __init__(self, patterns: "HelpPatterns | None" = None):
+    def __init__(self, patterns: HelpPatterns | None = None):
         # Compile patterns from config or use defaults
         if patterns:
             self._HELP_START_RE = re.compile(patterns.start_tag)
@@ -34,16 +35,16 @@ class HelpTracker:
             self._HELPBODY_END_RE = re.compile(patterns.body_end)
             self._HELPTAGS_RE = re.compile(patterns.tags)
         else:
-            self._HELP_START_RE = re.compile(r'\{help\}')
-            self._HELP_END_RE = re.compile(r'\{/help\}')
-            self._HELPBODY_START_RE = re.compile(r'\{helpbody\}')
-            self._HELPBODY_END_RE = re.compile(r'\{/helpbody\}')
-            self._HELPTAGS_RE = re.compile(r'\{helptags\}(.*)$')
+            self._HELP_START_RE = re.compile(r"\{help\}")
+            self._HELP_END_RE = re.compile(r"\{/help\}")
+            self._HELPBODY_START_RE = re.compile(r"\{helpbody\}")
+            self._HELPBODY_END_RE = re.compile(r"\{/helpbody\}")
+            self._HELPTAGS_RE = re.compile(r"\{helptags\}(.*)$")
 
         # Public state (read by UI)
         self.content: HelpContent | None = None  # Current help content
-        self.visible: bool = False               # Overlay shown
-        self.scroll_offset: int = 0              # Lines scrolled from top
+        self.visible: bool = False  # Overlay shown
+        self.scroll_offset: int = 0  # Lines scrolled from top
 
         # Set by UI after wrapping lines for display
         self._wrapped_line_count: int = 0
@@ -102,7 +103,7 @@ class HelpTracker:
         if tags_match:
             tags_str = tags_match.group(1).strip()
             if tags_str:
-                self._tags = [t.strip() for t in tags_str.split(',') if t.strip()]
+                self._tags = [t.strip() for t in tags_str.split(",") if t.strip()]
             return True, []
 
         # Inside helpbody - accumulate body lines
@@ -112,14 +113,14 @@ class HelpTracker:
 
         # Inside help block but outside helpbody - accumulate as header lines
         # Strip {helpkeywords} tag if present for cleaner display
-        clean_raw = self._HELPKEYWORDS_RE.sub('', raw)
+        clean_raw = self._HELPKEYWORDS_RE.sub("", raw)
         self._header_lines.append(clean_raw)
 
         # Use first non-empty, non-separator line as title
         stripped = plain.strip()
-        if stripped and not self._title and not stripped.startswith('-'):
+        if stripped and not self._title and not stripped.startswith("-"):
             # Strip {helpkeywords} from title too
-            clean_title = self._HELPKEYWORDS_RE.sub('', stripped).strip()
+            clean_title = self._HELPKEYWORDS_RE.sub("", stripped).strip()
             if clean_title:
                 self._title = clean_title
 
@@ -132,7 +133,7 @@ class HelpTracker:
             title=title,
             header_lines=list(self._header_lines),
             body_lines=list(self._body_lines),
-            tags=list(self._tags)
+            tags=list(self._tags),
         )
         self.visible = True
         self.scroll_offset = 0

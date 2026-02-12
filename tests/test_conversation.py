@@ -1,6 +1,6 @@
 """Tests for conversation speech pattern matching."""
 
-from mud_slop.conversation import ConversationTracker, DEFAULT_SPEECH_PATTERNS
+from mud_slop.conversation import DEFAULT_SPEECH_PATTERNS, ConversationTracker
 
 
 def make_tracker():

@@ -8,20 +8,32 @@ import time
 from typing import TYPE_CHECKING
 
 from mud_slop.constants import (
-    IAC, DO, GMCP, SB, SE,
-    TELNET_CMD_NAMES, TELNET_OPT_NAMES, NEGOTIATION_CMDS,
+    DO,
+    GMCP,
+    IAC,
+    NEGOTIATION_CMDS,
+    SB,
+    SE,
+    TELNET_CMD_NAMES,
+    TELNET_OPT_NAMES,
 )
-from mud_slop.types import ProtoEvent, safe_text_preview, hex_preview
 from mud_slop.telnet import TelnetFilter
+from mud_slop.types import ProtoEvent, hex_preview, safe_text_preview
 
 if TYPE_CHECKING:
     from mud_slop.config import GMCPConfig
 
 
 class MudConnection:
-    def __init__(self, host: str, port: int, proto_q: "queue.Queue[ProtoEvent]",
-                 text_q: "queue.Queue[str]", gmcp_q: "queue.Queue[tuple[float, bytes]]",
-                 gmcp_config: "GMCPConfig | None" = None):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        proto_q: queue.Queue[ProtoEvent],
+        text_q: queue.Queue[str],
+        gmcp_q: queue.Queue[tuple[float, bytes]],
+        gmcp_config: GMCPConfig | None = None,
+    ):
         self.host = host
         self.port = port
         self.proto_q = proto_q
@@ -64,7 +76,9 @@ class MudConnection:
     def _proto(self, direction: str, raw: bytes, preview: str = ""):
         if not preview:
             preview = safe_text_preview(raw)
-        self.proto_q.put(ProtoEvent(direction=direction, ts=time.time(), raw=raw, text_preview=preview))
+        self.proto_q.put(
+            ProtoEvent(direction=direction, ts=time.time(), raw=raw, text_preview=preview)
+        )
 
     def send_line(self, line: str):
         if not self.sock:
@@ -86,7 +100,7 @@ class MudConnection:
             return
 
         events = self.sel.select(timeout=0)
-        for key, mask in events:
+        for _key, mask in events:
             if mask & selectors.EVENT_READ:
                 try:
                     chunk = self.sock.recv(4096)
@@ -140,7 +154,7 @@ class MudConnection:
         if not self.sock:
             return
         if data:
-            payload = f"{package} {data}".encode("utf-8")
+            payload = f"{package} {data}".encode()
         else:
             payload = package.encode("utf-8")
         # Escape any 0xFF in payload
@@ -159,7 +173,10 @@ class MudConnection:
             subscriptions = self.gmcp_config.subscriptions
         else:
             subscriptions = [
-                "char 1", "char.vitals 1", "char.stats 1", "char.status 1",
+                "char 1",
+                "char.vitals 1",
+                "char.stats 1",
+                "char.status 1",
                 "char.maxstats 1",
             ]
         self.send_gmcp("Core.Supports.Set", json.dumps(subscriptions))

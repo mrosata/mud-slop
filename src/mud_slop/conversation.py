@@ -86,8 +86,7 @@ class ConversationTracker:
         speaker, message, open_quote = result
 
         entry = ConversationEntry(
-            speaker=speaker, message=message,
-            raw_line=raw_line, timestamp=time.time()
+            speaker=speaker, message=message, raw_line=raw_line, timestamp=time.time()
         )
 
         # Check if the speech is already closed (single-line)
@@ -160,26 +159,26 @@ class ConversationTracker:
         if not self.visible:
             return False
         elapsed = now - self.last_speech_time
-        if elapsed >= self.auto_close_seconds and not self.has_unread:
-            return True
-        return False
+        return elapsed >= self.auto_close_seconds and not self.has_unread
 
+
+_SPEAKER = r"(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)"
+_QUOTE_MSG = r"(?P<quote>['\"])(?P<message>.+)"
 
 DEFAULT_SPEECH_PATTERNS = [
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+says?,?\s+(?P<quote>['\"])(?P<message>.+)"), "says"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+tells?\s+you,?\s+(?P<quote>['\"])(?P<message>.+)"), "tells"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+whispers?,?\s+(?P<quote>['\"])(?P<message>.+)"), "whispers"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+(?:yells?|shouts?),?\s+(?P<quote>['\"])(?P<message>.+)"), "yells"),
-    SpeechPattern(re.compile(r"^(?P<speaker>[\w'-]+(?:\s+[\w'-]+)*?)\s+(?:asks?|exclaims?|questions?),?\s+(?P<quote>['\"])(?P<message>.+)"), "asks"),
+    SpeechPattern(re.compile(rf"^{_SPEAKER}\s+says?,?\s+{_QUOTE_MSG}"), "says"),
+    SpeechPattern(re.compile(rf"^{_SPEAKER}\s+tells?\s+you,?\s+{_QUOTE_MSG}"), "tells"),
+    SpeechPattern(re.compile(rf"^{_SPEAKER}\s+whispers?,?\s+{_QUOTE_MSG}"), "whispers"),
+    SpeechPattern(re.compile(rf"^{_SPEAKER}\s+(?:yells?|shouts?),?\s+{_QUOTE_MSG}"), "yells"),
+    SpeechPattern(
+        re.compile(rf"^{_SPEAKER}\s+(?:asks?|exclaims?|questions?),?\s+{_QUOTE_MSG}"), "asks"
+    ),
 ]
 
 
-def build_speech_patterns(config_patterns: "list[ConfigPattern]") -> list[SpeechPattern]:
+def build_speech_patterns(config_patterns: list[ConfigPattern]) -> list[SpeechPattern]:
     """Build SpeechPattern list from config ConversationPattern list."""
-    return [
-        SpeechPattern(re.compile(cp.pattern), cp.label)
-        for cp in config_patterns
-    ]
+    return [SpeechPattern(re.compile(cp.pattern), cp.label) for cp in config_patterns]
 
 
 def _wrap_text(text: str, width: int) -> list[str]:

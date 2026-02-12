@@ -3,28 +3,39 @@ from __future__ import annotations
 import curses
 from typing import TYPE_CHECKING
 
-from mud_slop.types import ts_str
-from mud_slop.ansi import _init_color_pairs, strip_ansi, parse_ansi, _color_pair_id
-from mud_slop.gmcp import GMCPHandler
+from mud_slop.ansi import _color_pair_id, _init_color_pairs, parse_ansi, strip_ansi
+from mud_slop.conversation import (
+    DEFAULT_SPEECH_PATTERNS,
+    ConversationTracker,
+    _wrap_text,
+    build_speech_patterns,
+)
 from mud_slop.debug_log import DebugLogger
-from mud_slop.history import CommandHistory
-from mud_slop.input_buffer import InputBuffer
-from mud_slop.conversation import ConversationTracker, DEFAULT_SPEECH_PATTERNS, build_speech_patterns, _wrap_text
-from mud_slop.info import InfoTracker
-from mud_slop.map import MapTracker
+from mud_slop.gmcp import GMCPHandler
 from mud_slop.help import HelpTracker
+from mud_slop.history import CommandHistory
+from mud_slop.info import InfoTracker
+from mud_slop.input_buffer import InputBuffer
+from mud_slop.map import MapTracker
+from mud_slop.types import ts_str
 
 if TYPE_CHECKING:
     from mud_slop.config import Config
 
 
 class MudUI:
-    HELP_MIN_WIDTH = 65     # Minimum width for help pager
+    HELP_MIN_WIDTH = 65  # Minimum width for help pager
     HELP_MIN_HEIGHT = 30
 
-    def __init__(self, stdscr, gmcp_handler: "GMCPHandler | None" = None,
-                 color: bool = True, debug_logger: "DebugLogger | None" = None,
-                 conv_pos: str = "bottom-right", config: "Config | None" = None):
+    def __init__(
+        self,
+        stdscr,
+        gmcp_handler: GMCPHandler | None = None,
+        color: bool = True,
+        debug_logger: DebugLogger | None = None,
+        conv_pos: str = "bottom-right",
+        config: Config | None = None,
+    ):
         self.stdscr = stdscr
         self.conv_pos = conv_pos
         self.gmcp_handler = gmcp_handler
@@ -42,7 +53,7 @@ class MudUI:
             self.RIGHT_PANEL_RATIO = 0.40
             self.max_output_lines = 5000
 
-        self.output_lines = []   # main text area (full history, everything)
+        self.output_lines = []  # main text area (full history, everything)
         self.display_lines = []  # filtered view (all tracked content removed)
         self.history_lines = []  # scroll-up view (configurable content visibility)
         self.input_buf = InputBuffer()
@@ -69,8 +80,7 @@ class MudUI:
 
             # Info tracker with pattern and timers from config
             self.info_tracker = InfoTracker(
-                patterns=config.patterns.info,
-                timers=config.timers.info
+                patterns=config.patterns.info, timers=config.timers.info
             )
 
             # Map tracker with patterns from config
@@ -86,7 +96,7 @@ class MudUI:
 
         self._skip_next_blank = False
         self._skip_blank_after_speech = False
-        self._skip_next_blank_h = False        # history_lines blank suppression (INFO)
+        self._skip_next_blank_h = False  # history_lines blank suppression (INFO)
         self._skip_blank_after_speech_h = False  # history_lines blank suppression (speech)
         self._incomplete_line = ""  # Buffer for incomplete lines (no trailing \n)
 
@@ -101,8 +111,8 @@ class MudUI:
         self.echo_off = False  # True when server signals password mode (hide input)
 
         # ANSI color state persisted across lines (output_lines view)
-        self._ansi_fg = 7    # default white
-        self._ansi_bg = -1   # default background
+        self._ansi_fg = 7  # default white
+        self._ansi_bg = -1  # default background
         self._ansi_bold = False
         self._ansi_underline = False
         self._ansi_reverse = False
@@ -131,7 +141,7 @@ class MudUI:
         self.stdscr.keypad(True)
         # Enable mouse events; on macOS ncurses, scroll-down (0x08000000)
         # falls outside ALL_MOUSE_EVENTS (0x7ffffff), so OR it in explicitly.
-        _SCROLL_DOWN = getattr(curses, 'BUTTON5_PRESSED', 0x08000000)
+        _SCROLL_DOWN = getattr(curses, "BUTTON5_PRESSED", 0x08000000)
         curses.mousemask(curses.ALL_MOUSE_EVENTS | _SCROLL_DOWN)
         self._BUTTON5_PRESSED = _SCROLL_DOWN
 
@@ -247,12 +257,12 @@ class MudUI:
             self._output_scroll += history_added
         # Trim all buffers
         if len(self.output_lines) > self.max_output_lines:
-            self.output_lines = self.output_lines[-self.max_output_lines:]
+            self.output_lines = self.output_lines[-self.max_output_lines :]
         if len(self.display_lines) > self.max_output_lines:
-            self.display_lines = self.display_lines[-self.max_output_lines:]
+            self.display_lines = self.display_lines[-self.max_output_lines :]
         if len(self.history_lines) > self.max_output_lines:
             trimmed = len(self.history_lines) - self.max_output_lines
-            self.history_lines = self.history_lines[-self.max_output_lines:]
+            self.history_lines = self.history_lines[-self.max_output_lines :]
             if self._output_scroll > 0:
                 self._output_scroll = max(0, self._output_scroll - trimmed)
 
@@ -341,8 +351,7 @@ class MudUI:
                 pass
         win.noutrefresh()
 
-    def _draw_colored_text(self, win, lines, scroll_offset: int = 0,
-                           state_key: str = "output"):
+    def _draw_colored_text(self, win, lines, scroll_offset: int = 0, state_key: str = "output"):
         """Draw lines with ANSI color support, maintaining state across lines.
 
         state_key selects which set of ANSI state to read/write:
@@ -663,9 +672,9 @@ class MudUI:
 
         overlay.noutrefresh()
 
-    def _draw_wrapped_colored(self, win, raw: str, start_row: int,
-                              col_offset: int, inner_w: int,
-                              pane_h: int) -> int:
+    def _draw_wrapped_colored(
+        self, win, raw: str, start_row: int, col_offset: int, inner_w: int, pane_h: int
+    ) -> int:
         """Word-wrap and draw a raw ANSI line with colors.  Returns rows used."""
         segments, _ = parse_ansi(raw)
         # Flatten to (char, attr) pairs (visible characters only)
@@ -688,13 +697,13 @@ class MudUI:
             # Look back for a word-break point (space or hyphen)
             break_at = end
             for i in range(end - 1, pos, -1):
-                if chars[i][0] == ' ':
+                if chars[i][0] == " ":
                     break_at = i + 1
                     break
             visual_lines.append((pos, break_at))
             pos = break_at
             # Skip leading spaces on the new line
-            while pos < n and chars[pos][0] == ' ':
+            while pos < n and chars[pos][0] == " ":
                 pos += 1
 
         rows_used = 0
@@ -710,7 +719,7 @@ class MudUI:
                 run_end = run_start + 1
                 while run_end < end and chars[run_end][1] == run_attr:
                     run_end += 1
-                text = ''.join(c for c, _ in chars[run_start:run_end])
+                text = "".join(c for c, _ in chars[run_start:run_end])
                 remaining = inner_w - (col - col_offset)
                 if remaining <= 0:
                     break
@@ -831,8 +840,7 @@ class MudUI:
                 if not desc_plain:
                     continue
                 if self.color_enabled:
-                    row += self._draw_wrapped_colored(
-                        win, desc_raw, row, 2, inner_w, pane_h)
+                    row += self._draw_wrapped_colored(win, desc_raw, row, 2, inner_w, pane_h)
                 else:
                     wrapped = _wrap_text(desc_plain, inner_w)
                     for wline in wrapped:
@@ -883,7 +891,7 @@ class MudUI:
         # Title on top border (bold)
         title_label = f" {content.title} "
         if len(title_label) > pager_w - 4:
-            title_label = title_label[:pager_w - 5] + "..."
+            title_label = title_label[: pager_w - 5] + "..."
         try:
             win.addnstr(0, 2, title_label, pager_w - 4, curses.A_BOLD)
         except curses.error:
@@ -1061,8 +1069,9 @@ class MudUI:
             view_state_key = "history"
 
         if self.color_enabled:
-            self._draw_colored_text(out_win, view_lines, self._output_scroll,
-                                    state_key=view_state_key)
+            self._draw_colored_text(
+                out_win, view_lines, self._output_scroll, state_key=view_state_key
+            )
         else:
             self._draw_scrolling_text(out_win, view_lines, self._output_scroll)
 
@@ -1101,7 +1110,7 @@ class MudUI:
         else:
             # Slide window so cursor is visible with a small margin
             scroll_off = cursor_in_full - max_visible + 1
-        shown = full[scroll_off:scroll_off + max_visible]
+        shown = full[scroll_off : scroll_off + max_visible]
         try:
             input_win.addnstr(0, 0, shown, max_visible)
         except curses.error:
@@ -1419,10 +1428,8 @@ class MudUI:
 
         # Movement hotkeys: Shift+WASD sends direction commands
         # Only when input buffer is empty and user is logged in
-        _MOVE_KEYS = {ord('W'): 'n', ord('A'): 'w', ord('S'): 's', ord('D'): 'e'}
-        if (ch in _MOVE_KEYS
-                and not self.input_buf.text
-                and self.map_tracker.enabled):
+        _MOVE_KEYS = {ord("W"): "n", ord("A"): "w", ord("S"): "s", ord("D"): "e"}
+        if ch in _MOVE_KEYS and not self.input_buf.text and self.map_tracker.enabled:
             return _MOVE_KEYS[ch], False
 
         if ch >= 0 and ch < 256:
@@ -1457,11 +1464,16 @@ class MudUI:
 
     def history_settings_text(self) -> str:
         """Return a summary of current history visibility settings."""
-        def on_off(v): return "on" if v else "off"
-        return (f"conversations={on_off(self.history_show_conversations)}, "
-                f"help={on_off(self.history_show_help)}, "
-                f"maps={on_off(self.history_show_maps)}, "
-                f"info={on_off(self.history_show_info)}")
+
+        def on_off(v):
+            return "on" if v else "off"
+
+        return (
+            f"conversations={on_off(self.history_show_conversations)}, "
+            f"help={on_off(self.history_show_help)}, "
+            f"maps={on_off(self.history_show_maps)}, "
+            f"info={on_off(self.history_show_info)}"
+        )
 
     def clear(self):
         self.output_lines = []

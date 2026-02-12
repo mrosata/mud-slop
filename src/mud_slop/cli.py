@@ -6,7 +6,7 @@ import urllib.request
 
 from mud_slop import __version__
 from mud_slop.app import run_client
-from mud_slop.config import load_config, load_profile, create_profile
+from mud_slop.config import create_profile, load_config, load_profile
 
 
 def _parse_version(v):
@@ -44,28 +44,56 @@ def check_for_updates():
 
 def main():
     p = argparse.ArgumentParser(description="Curses MUD client")
-    p.add_argument("-v", "--version", action="version",
-                   version=f"%(prog)s {__version__}")
-    p.add_argument("-c", "--config", default="default",
-                   help="Configuration name or path (searches ~/.mud-slop/configs/, ./configs/, or use full path)")
-    p.add_argument("host", nargs="?", default=None,
-                   help="MUD host (domain or IP) - overrides config")
-    p.add_argument("port", nargs="?", type=int, default=None,
-                   help="MUD port - overrides config")
-    p.add_argument("--no-color", action="store_true", default=False,
-                   help="Disable ANSI color rendering (strip escape sequences)")
-    p.add_argument("-d", "--debug", action="store_true", default=False,
-                   help="Enable debug logging to mud_*.log files in current directory")
-    p.add_argument("-p", "--profile",
-                   default=None,
-                   help="Login profile name or path (searches ~/.mud-slop/profiles/, ./profiles/, or use full path)")
-    p.add_argument("--create-profile", metavar="NAME",
-                   help="Create a login profile interactively (saves to ~/.mud-slop/profiles/)")
-    p.add_argument("--conv-pos",
-                   choices=["top-left", "top-center", "top-right",
-                            "bottom-left", "bottom-center", "bottom-right"],
-                   default="bottom-right",
-                   help="Conversation overlay position (default: bottom-right)")
+    p.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
+    p.add_argument(
+        "-c",
+        "--config",
+        default="default",
+        help="Configuration name or path "
+        "(searches ~/.mud-slop/configs/, ./configs/, or use full path)",
+    )
+    p.add_argument(
+        "host", nargs="?", default=None, help="MUD host (domain or IP) - overrides config"
+    )
+    p.add_argument("port", nargs="?", type=int, default=None, help="MUD port - overrides config")
+    p.add_argument(
+        "--no-color",
+        action="store_true",
+        default=False,
+        help="Disable ANSI color rendering (strip escape sequences)",
+    )
+    p.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Enable debug logging to mud_*.log files in current directory",
+    )
+    p.add_argument(
+        "-p",
+        "--profile",
+        default=None,
+        help="Login profile name or path "
+        "(searches ~/.mud-slop/profiles/, ./profiles/, or use full path)",
+    )
+    p.add_argument(
+        "--create-profile",
+        metavar="NAME",
+        help="Create a login profile interactively (saves to ~/.mud-slop/profiles/)",
+    )
+    p.add_argument(
+        "--conv-pos",
+        choices=[
+            "top-left",
+            "top-center",
+            "top-right",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right",
+        ],
+        default="bottom-right",
+        help="Conversation overlay position (default: bottom-right)",
+    )
     args = p.parse_args()
 
     # Handle --create-profile and exit
@@ -101,6 +129,6 @@ def main():
 
     check_for_updates()
 
-    curses.wrapper(run_client, config,
-                   color=not args.no_color, debug=args.debug,
-                   conv_pos=args.conv_pos)
+    curses.wrapper(
+        run_client, config, color=not args.no_color, debug=args.debug, conv_pos=args.conv_pos
+    )

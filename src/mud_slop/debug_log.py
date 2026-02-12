@@ -1,7 +1,7 @@
 import json
 import time
 
-from mud_slop.types import ProtoEvent, ts_str, hex_preview
+from mud_slop.types import ProtoEvent, hex_preview, ts_str
 
 
 class DebugLogger:
@@ -18,7 +18,7 @@ class DebugLogger:
         self._proto_fh = open("mud_proto.log", "a", encoding="utf-8")
         self._gmcp_fh = open("mud_gmcp.log", "a", encoding="utf-8")
         self.enabled = True
-        sep = f"\n{'='*60}\n  Session started: {time.strftime('%Y-%m-%d %H:%M:%S')}\n{'='*60}\n"
+        sep = f"\n{'=' * 60}\n  Session started: {time.strftime('%Y-%m-%d %H:%M:%S')}\n{'=' * 60}\n"
         for fh in (self._output_fh, self._proto_fh, self._gmcp_fh):
             fh.write(sep)
             fh.flush()

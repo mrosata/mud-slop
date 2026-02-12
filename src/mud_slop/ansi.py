@@ -50,8 +50,14 @@ def strip_ansi(text: str) -> str:
     return _ANSI_SGR_RE.sub("", text)
 
 
-def parse_ansi(text: str, fg: int = 7, bg: int = -1, bold: bool = False,
-               underline: bool = False, reverse: bool = False):
+def parse_ansi(
+    text: str,
+    fg: int = 7,
+    bg: int = -1,
+    bold: bool = False,
+    underline: bool = False,
+    reverse: bool = False,
+):
     """Parse ANSI SGR sequences in text, returning colored segments.
 
     Args:
@@ -68,7 +74,7 @@ def parse_ansi(text: str, fg: int = 7, bg: int = -1, bold: bool = False,
 
     for m in _ANSI_SGR_RE.finditer(text):
         # Text before this escape sequence
-        before = text[last_end:m.start()]
+        before = text[last_end : m.start()]
         if before:
             attr = _build_attr(fg, bg, bold, underline, reverse)
             segments.append((before, attr))
@@ -100,9 +106,9 @@ def parse_ansi(text: str, fg: int = 7, bg: int = -1, bold: bool = False,
                 fg = code - 30
             elif 40 <= code <= 47:
                 bg = code - 40
-            elif 39 == code:
+            elif code == 39:
                 fg = 7  # default foreground
-            elif 49 == code:
+            elif code == 49:
                 bg = -1  # default background
             elif 90 <= code <= 97:
                 fg = code - 90

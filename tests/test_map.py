@@ -1,15 +1,16 @@
 """Tests for MapTracker tag-based map detection (<MAPSTART>/<MAPEND>)."""
 
-import pytest
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
-from mud_slop.map import MapTracker
 from mud_slop.ansi import strip_ansi
-
+from mud_slop.map import MapTracker
 
 # --- Helper factories ---
 
-def _map_block(room_name: str, map_lines: List[str], exits: str = "N S E W") -> List[Tuple[str, str]]:
+
+def _map_block(
+    room_name: str, map_lines: List[str], exits: str = "N S E W"
+) -> List[Tuple[str, str]]:
     """Build a complete map block as (plain, raw) pairs."""
     lines = []
     lines.append(("<MAPSTART>", "<MAPSTART>"))
@@ -46,6 +47,7 @@ def _structural_map() -> List[str]:
 
 
 # --- Tag-based parsing tests ---
+
 
 class TestMapStartEnd:
     def _make_tracker(self) -> MapTracker:

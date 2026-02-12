@@ -10,16 +10,18 @@ if TYPE_CHECKING:
 
 
 class MapTracker:
-    """Detects and extracts ASCII map blocks using <MAPSTART>/<MAPEND> tags and room descriptions using {rdesc}/{/rdesc} tags."""
+    """Detects and extracts ASCII map blocks using <MAPSTART>/<MAPEND> tags
+    and room descriptions using {rdesc}/{/rdesc} tags."""
 
-    # Room name line after <MAPEND>: "Room Name" or "Room Name (G)" or "Room Name (123)" or "Room Name (G) (123)"
+    # Room name line after <MAPEND>: "Room Name" or "Room Name (G)"
+    # or "Room Name (123)" or "Room Name (G) (123)"
     # Starts with a letter, may have optional (X) markers at the end
-    _ROOM_NAME_LINE_RE = re.compile(r'^[A-Za-z][A-Za-z0-9\s\'\-,\.]+(?:\s*\([A-Za-z0-9]+\))*\s*$')
+    _ROOM_NAME_LINE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9\s\'\-,\.]+(?:\s*\([A-Za-z0-9]+\))*\s*$")
 
     # Map line detection: no runs of 2+ alpha chars
-    _ALPHA_RUN = re.compile(r'[a-zA-Z]{2,}')
+    _ALPHA_RUN = re.compile(r"[a-zA-Z]{2,}")
 
-    def __init__(self, patterns: "MapPatterns | None" = None):
+    def __init__(self, patterns: MapPatterns | None = None):
         # Compile patterns from config or use defaults
         if patterns:
             self._MAPSTART_RE = re.compile(patterns.start_tag)
@@ -30,29 +32,29 @@ class MapTracker:
             self._EXITS_RE = re.compile(patterns.exits, re.IGNORECASE)
         else:
             # Default patterns
-            self._MAPSTART_RE = re.compile(r'<MAPSTART>')
-            self._MAPEND_RE = re.compile(r'<MAPEND>')
-            self._RDESC_START_RE = re.compile(r'\{rdesc\}')
-            self._RDESC_END_RE = re.compile(r'\{/rdesc\}')
-            self._COORDS_RE = re.compile(r'\{coords\}(\S+)')
-            self._EXITS_RE = re.compile(r'^\s*\[?\s*Exits:\s*.*\]?\s*$', re.IGNORECASE)
+            self._MAPSTART_RE = re.compile(r"<MAPSTART>")
+            self._MAPEND_RE = re.compile(r"<MAPEND>")
+            self._RDESC_START_RE = re.compile(r"\{rdesc\}")
+            self._RDESC_END_RE = re.compile(r"\{/rdesc\}")
+            self._COORDS_RE = re.compile(r"\{coords\}(\S+)")
+            self._EXITS_RE = re.compile(r"^\s*\[?\s*Exits:\s*.*\]?\s*$", re.IGNORECASE)
 
-        self.map_lines: list[str] = []       # current map (raw ANSI lines)
-        self.room_name: str = ""             # plain text room name
-        self.room_name_raw: str = ""         # raw ANSI room name line
-        self.room_desc: list[str] = []       # description lines (raw ANSI)
-        self.coords: str = ""                # coordinates string (e.g., "0,30,20")
-        self.exits: str = ""                 # exits string (plain text)
-        self.exits_raw: str = ""             # exits string (raw ANSI)
+        self.map_lines: list[str] = []  # current map (raw ANSI lines)
+        self.room_name: str = ""  # plain text room name
+        self.room_name_raw: str = ""  # raw ANSI room name line
+        self.room_desc: list[str] = []  # description lines (raw ANSI)
+        self.coords: str = ""  # coordinates string (e.g., "0,30,20")
+        self.exits: str = ""  # exits string (plain text)
+        self.exits_raw: str = ""  # exits string (raw ANSI)
 
-        self._in_map_block: bool = False     # between <MAPSTART> and <MAPEND>
-        self._in_rdesc_block: bool = False   # between {rdesc} and {/rdesc}
-        self._expect_room_name: bool = False # expecting room name line after <MAPEND>
+        self._in_map_block: bool = False  # between <MAPSTART> and <MAPEND>
+        self._in_rdesc_block: bool = False  # between {rdesc} and {/rdesc}
+        self._expect_room_name: bool = False  # expecting room name line after <MAPEND>
         self._block_lines: list[tuple[str, str]] = []  # (plain, raw) accumulator
-        self._rdesc_lines: list[str] = []    # description lines accumulator
+        self._rdesc_lines: list[str] = []  # description lines accumulator
 
-        self.sent_initial: bool = False       # sent initial 'map' command
-        self.enabled: bool = False            # only detect maps after login
+        self.sent_initial: bool = False  # sent initial 'map' command
+        self.enabled: bool = False  # only detect maps after login
 
     def _is_map_line(self, plain: str) -> bool:
         """No runs of 2+ alpha chars (used to identify map ASCII art)."""
@@ -125,7 +127,10 @@ class MapTracker:
             if self._ROOM_NAME_LINE_RE.match(stripped):
                 # Extract just the room name (strip the (G) and (123) parts)
                 # Keep the name part before any parenthetical markers
-                name_match = re.match(r'^([A-Za-z][A-Za-z0-9\s\'\-,\.]+?)(?:\s*\([A-Za-z0-9]+\))*\s*$', stripped)
+                name_match = re.match(
+                    r"^([A-Za-z][A-Za-z0-9\s\'\-,\.]+?)(?:\s*\([A-Za-z0-9]+\))*\s*$",
+                    stripped,
+                )
                 if name_match:
                     self.room_name = name_match.group(1).strip()
                     self.room_name_raw = raw
@@ -146,16 +151,15 @@ class MapTracker:
         with empty lines acting as paragraph breaks.  Raw ANSI codes
         are preserved in both cases.
         """
-        non_blank = [(raw, strip_ansi(raw).strip())
-                     for raw in self._rdesc_lines
-                     if strip_ansi(raw).strip()]
+        non_blank = [
+            (raw, strip_ansi(raw).strip()) for raw in self._rdesc_lines if strip_ansi(raw).strip()
+        ]
         if not non_blank:
             self.room_desc = []
             return
 
         # If most non-blank lines lack word-like content, it's ASCII art
-        art_count = sum(1 for _, p in non_blank
-                        if not self._ALPHA_RUN.search(p))
+        art_count = sum(1 for _, p in non_blank if not self._ALPHA_RUN.search(p))
         if art_count > len(non_blank) // 2:
             # Keep lines separate to preserve art layout
             self.room_desc = list(self._rdesc_lines)
@@ -168,12 +172,12 @@ class MapTracker:
             plain = strip_ansi(raw_line).strip()
             if not plain:
                 if current_parts:
-                    paragraphs.append(' '.join(current_parts))
+                    paragraphs.append(" ".join(current_parts))
                     current_parts = []
             else:
                 current_parts.append(raw_line)
         if current_parts:
-            paragraphs.append(' '.join(current_parts))
+            paragraphs.append(" ".join(current_parts))
         self.room_desc = paragraphs
 
     def _finalize_block(self):
@@ -206,7 +210,7 @@ class MapTracker:
 
         # Lines between room name and exits (or end) are map lines
         end_idx = exits_idx if exits_idx > 0 else len(self._block_lines)
-        middle_lines = self._block_lines[room_idx + 1:end_idx]
+        middle_lines = self._block_lines[room_idx + 1 : end_idx]
 
         # Collect map lines (ASCII art with no 2+ alpha runs)
         map_lines: list[str] = []

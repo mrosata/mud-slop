@@ -11,16 +11,15 @@ if TYPE_CHECKING:
 
 @dataclass
 class InfoEntry:
-    text: str       # ANSI-stripped message text
-    raw_line: str   # original with ANSI preserved
+    text: str  # ANSI-stripped message text
+    raw_line: str  # original with ANSI preserved
     timestamp: float
 
 
 class InfoTracker:
     """Tracks INFO channel messages and manages a news-ticker display."""
 
-    def __init__(self, patterns: "InfoPatterns | None" = None,
-                 timers: "InfoTimers | None" = None):
+    def __init__(self, patterns: InfoPatterns | None = None, timers: InfoTimers | None = None):
         # Compile pattern from config or use default
         if patterns:
             self._info_re = re.compile(patterns.prefix)
@@ -47,11 +46,10 @@ class InfoTracker:
         return bool(self._info_re.match(plain_text))
 
     def add(self, plain_text: str, raw_line: str):
-        entry = InfoEntry(text=plain_text, raw_line=raw_line,
-                          timestamp=time.time())
+        entry = InfoEntry(text=plain_text, raw_line=raw_line, timestamp=time.time())
         self.history.append(entry)
         if len(self.history) > self.max_history:
-            self.history = self.history[-self.max_history:]
+            self.history = self.history[-self.max_history :]
         if self.current is None:
             self._show(entry)
         else:

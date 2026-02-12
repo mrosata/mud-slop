@@ -18,7 +18,7 @@ class GMCPHandler:
             data = {}
         else:
             package = text[:space].strip().lower()
-            body = text[space + 1:].strip()
+            body = text[space + 1 :].strip()
             try:
                 data = json.loads(body)
             except (json.JSONDecodeError, ValueError):

@@ -19,19 +19,19 @@ class InputBuffer:
 
     def insert(self, ch: str):
         """Insert a character at the cursor position."""
-        self._text = self._text[:self._cursor] + ch + self._text[self._cursor:]
+        self._text = self._text[: self._cursor] + ch + self._text[self._cursor :]
         self._cursor += len(ch)
 
     def backspace(self):
         """Delete the character before the cursor."""
         if self._cursor > 0:
-            self._text = self._text[:self._cursor - 1] + self._text[self._cursor:]
+            self._text = self._text[: self._cursor - 1] + self._text[self._cursor :]
             self._cursor -= 1
 
     def delete(self):
         """Delete the character at the cursor."""
         if self._cursor < len(self._text):
-            self._text = self._text[:self._cursor] + self._text[self._cursor + 1:]
+            self._text = self._text[: self._cursor] + self._text[self._cursor + 1 :]
 
     def move_left(self):
         """Move cursor one position to the left."""
@@ -80,16 +80,16 @@ class InputBuffer:
             return
         old_cursor = self._cursor
         self.move_word_left()
-        self._text = self._text[:self._cursor] + self._text[old_cursor:]
+        self._text = self._text[: self._cursor] + self._text[old_cursor:]
 
     def kill_to_start(self):
         """Delete from cursor to start of line (Ctrl+U)."""
-        self._text = self._text[self._cursor:]
+        self._text = self._text[self._cursor :]
         self._cursor = 0
 
     def kill_to_end(self):
         """Delete from cursor to end of line (Ctrl+K)."""
-        self._text = self._text[:self._cursor]
+        self._text = self._text[: self._cursor]
 
     def set_text(self, text: str):
         """Replace buffer content and move cursor to end."""

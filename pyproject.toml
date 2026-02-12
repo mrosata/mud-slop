@@ -45,4 +45,23 @@ packages = ["src/mud_slop"]
 [dependency-groups]
 dev = [
     "pytest>=8.4.2",
+    "ruff>=0.8",
 ]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "SIM105",  # contextlib.suppress — less readable in curses code
+    "SIM108",  # ternary operator — prefer explicit if/else for clarity
+    "SIM102",  # collapsible if — nested ifs can be clearer
+    "SIM115",  # context manager for open — file handles are intentionally long-lived
+    "UP035",   # typing.List deprecated — needed for Python 3.9 compat
+    "UP006",   # use builtin list/tuple — needed for Python 3.9 compat
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501", "RUF059"]
