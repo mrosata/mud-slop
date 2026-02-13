@@ -17,6 +17,14 @@ from mud_slop.history import CommandHistory
 from mud_slop.info import InfoTracker
 from mud_slop.input_buffer import InputBuffer
 from mud_slop.map import MapTracker
+from mud_slop.menu import (
+    ChoiceOption,
+    Menu,
+    MenuBar,
+    MenuItem,
+    MenuItemType,
+    MenuState,
+)
 from mud_slop.types import ts_str
 
 if TYPE_CHECKING:
@@ -110,6 +118,11 @@ class MudUI:
         self._help_mode = False
         self.echo_off = False  # True when server signals password mode (hide input)
 
+        # Menu bar
+        self._current_config_name: str = "default"
+        self._current_profile_name: str | None = None
+        self.menu_bar = self._build_menu_bar()
+
         # ANSI color state persisted across lines (output_lines view)
         self._ansi_fg = 7  # default white
         self._ansi_bg = -1  # default background
@@ -144,6 +157,177 @@ class MudUI:
         _SCROLL_DOWN = getattr(curses, "BUTTON5_PRESSED", 0x08000000)
         curses.mousemask(curses.ALL_MOUSE_EVENTS | _SCROLL_DOWN)
         self._BUTTON5_PRESSED = _SCROLL_DOWN
+
+    def _build_menu_bar(self) -> MenuBar:
+        """Construct the menu bar with File + Settings menus."""
+        file_menu = Menu(
+            title="File",
+            shortcut_key="f",
+            items=[
+                MenuItem(
+                    item_type=MenuItemType.ACTION,
+                    label="Quit",
+                    action_id="quit",
+                    hotkey="Ctrl+C",
+                ),
+            ],
+        )
+        settings_menu = Menu(
+            title="Settings",
+            shortcut_key="s",
+            items=[
+                MenuItem(
+                    item_type=MenuItemType.CHOICE,
+                    label="Config",
+                    action_id="config",
+                    choices_supplier=self._get_config_choices,
+                ),
+                MenuItem(
+                    item_type=MenuItemType.CHOICE,
+                    label="Profile",
+                    action_id="profile",
+                    choices_supplier=self._get_profile_choices,
+                ),
+                MenuItem(item_type=MenuItemType.SEPARATOR),
+                MenuItem(
+                    item_type=MenuItemType.TOGGLE,
+                    label="Color",
+                    action_id="color",
+                    toggled=self.color_enabled,
+                ),
+                MenuItem(
+                    item_type=MenuItemType.CHOICE,
+                    label="Conv Position",
+                    action_id="conv_pos",
+                    choices=[
+                        ChoiceOption("top-left", "top-left"),
+                        ChoiceOption("top-center", "top-center"),
+                        ChoiceOption("top-right", "top-right"),
+                        ChoiceOption("bottom-left", "bottom-left"),
+                        ChoiceOption("bottom-center", "bottom-center"),
+                        ChoiceOption(
+                            "bottom-right",
+                            "bottom-right",
+                            selected=(self.conv_pos == "bottom-right"),
+                        ),
+                    ],
+                ),
+                MenuItem(
+                    item_type=MenuItemType.TOGGLE,
+                    label="Debug",
+                    action_id="debug",
+                    toggled=bool(self.debug_logger and self.debug_logger.enabled),
+                ),
+                MenuItem(item_type=MenuItemType.SEPARATOR),
+                MenuItem(
+                    item_type=MenuItemType.TOGGLE,
+                    label="History: Conversations",
+                    action_id="history_conversations",
+                    toggled=self.history_show_conversations,
+                ),
+                MenuItem(
+                    item_type=MenuItemType.TOGGLE,
+                    label="History: Help",
+                    action_id="history_help",
+                    toggled=self.history_show_help,
+                ),
+                MenuItem(
+                    item_type=MenuItemType.TOGGLE,
+                    label="History: Maps",
+                    action_id="history_maps",
+                    toggled=self.history_show_maps,
+                ),
+                MenuItem(
+                    item_type=MenuItemType.TOGGLE,
+                    label="History: Info",
+                    action_id="history_info",
+                    toggled=self.history_show_info,
+                ),
+            ],
+        )
+        # Set current conv_pos selection
+        for c in settings_menu.items[4].choices:
+            c.selected = c.value == self.conv_pos
+
+        bar = MenuBar([file_menu, settings_menu])
+        return bar
+
+    def _get_config_choices(self) -> list[tuple[str, str]]:
+        from mud_slop.config import list_configs
+
+        choices = list_configs()
+        if not choices:
+            choices = [("default", "default")]
+        return choices
+
+    def _get_profile_choices(self) -> list[tuple[str, str]]:
+        from mud_slop.config import list_profiles
+
+        result: list[tuple[str, str]] = [("(none)", "")]
+        result.extend(list_profiles())
+        return result
+
+    def _sync_menu_toggles(self) -> None:
+        """Sync toggle/choice states in menu items with current UI state."""
+        if len(self.menu_bar.menus) < 2:
+            return
+        settings = self.menu_bar.menus[1]
+        for item in settings.items:
+            if item.action_id == "color":
+                item.toggled = self.color_enabled
+            elif item.action_id == "debug":
+                item.toggled = bool(self.debug_logger and self.debug_logger.enabled)
+            elif item.action_id == "history_conversations":
+                item.toggled = self.history_show_conversations
+            elif item.action_id == "history_help":
+                item.toggled = self.history_show_help
+            elif item.action_id == "history_maps":
+                item.toggled = self.history_show_maps
+            elif item.action_id == "history_info":
+                item.toggled = self.history_show_info
+            elif item.action_id == "conv_pos":
+                for c in item.choices:
+                    c.selected = c.value == self.conv_pos
+
+    def rebuild_trackers(self, config: Config) -> None:
+        """Re-create trackers from a new config (for hot-swap)."""
+        # Preserve map state
+        map_enabled = self.map_tracker.enabled
+        map_sent_initial = self.map_tracker.sent_initial
+
+        # Preserve info history
+        info_history = list(self.info_tracker.history)
+
+        # Dismiss overlays
+        self.conversation.dismiss()
+
+        # Rebuild trackers
+        conv_patterns = build_speech_patterns(config.patterns.conversation.patterns)
+        auto_close = config.timers.conversation.auto_close
+        self.conversation = ConversationTracker(conv_patterns, auto_close)
+
+        self.info_tracker = InfoTracker(patterns=config.patterns.info, timers=config.timers.info)
+        self.info_tracker._history = info_history
+
+        self.map_tracker = MapTracker(patterns=config.patterns.map)
+        self.map_tracker.enabled = map_enabled
+        self.map_tracker.sent_initial = map_sent_initial
+
+        self.help_tracker = HelpTracker(patterns=config.patterns.help)
+
+        # Update UI settings from config
+        if config.ui:
+            self.RIGHT_PANEL_MAX_WIDTH = config.ui.right_panel_max_width
+            self.RIGHT_PANEL_RATIO = config.ui.right_panel_ratio
+            self.max_output_lines = config.ui.max_output_lines
+            if config.ui.history:
+                self.history_show_conversations = config.ui.history.conversations
+                self.history_show_help = config.ui.history.help
+                self.history_show_maps = config.ui.history.maps
+                self.history_show_info = config.ui.history.info
+
+        self.config = config
+        self._sync_menu_toggles()
 
     def _is_other_speech(self, plain: str) -> bool:
         """Return True if the line is speech from someone other than 'You'.
@@ -290,10 +474,11 @@ class MudUI:
 
     def _layout(self):
         h, w = self.stdscr.getmaxyx()
-        # Reserve rows at bottom: status (1) + input (1) + optional ticker (1)
+        # Reserve rows: menu bar (1) at top, status (1) + input (1) + optional ticker (1) at bottom
+        menu_h = 1
         ticker_h = 1 if self._show_ticker() else 0
         bottom_rows = 2 + ticker_h
-        usable_h = max(1, h - bottom_rows)
+        usable_h = max(1, h - bottom_rows - menu_h)
 
         # Right side panel: stats on top, map below (if both present)
         # Or just one if only one is present
@@ -305,9 +490,9 @@ class MudUI:
         if show_stats or show_map:
             right_panel_w = min(int(w * self.RIGHT_PANEL_RATIO), self.RIGHT_PANEL_MAX_WIDTH)
 
-        # Output pane: left side, full height
+        # Output pane: left side, full height (shifted down by menu_h)
         out_w = max(20, w - right_panel_w)
-        out_win = curses.newwin(usable_h, out_w, 0, 0)
+        out_win = curses.newwin(usable_h, out_w, menu_h, 0)
 
         # Right panel layout: stats on top (if present), map below (if present)
         stats_win = None
@@ -320,14 +505,14 @@ class MudUI:
                 # Split right panel: stats gets fixed height, map gets rest
                 stats_h = min(self.STATS_HEIGHT, usable_h // 2)
                 map_h = usable_h - stats_h
-                stats_win = curses.newwin(stats_h, right_panel_w, 0, right_x)
-                map_win = curses.newwin(map_h, right_panel_w, stats_h, right_x)
+                stats_win = curses.newwin(stats_h, right_panel_w, menu_h, right_x)
+                map_win = curses.newwin(map_h, right_panel_w, menu_h + stats_h, right_x)
             elif show_stats:
                 # Only stats
-                stats_win = curses.newwin(usable_h, right_panel_w, 0, right_x)
+                stats_win = curses.newwin(usable_h, right_panel_w, menu_h, right_x)
             elif show_map:
                 # Only map
-                map_win = curses.newwin(usable_h, right_panel_w, 0, right_x)
+                map_win = curses.newwin(usable_h, right_panel_w, menu_h, right_x)
 
         ticker_win = None
         if ticker_h:
@@ -854,6 +1039,150 @@ class MudUI:
 
         win.noutrefresh()
 
+    def _draw_menu_bar(self) -> None:
+        """Draw the menu bar on row 0 of stdscr."""
+        _, w = self.stdscr.getmaxyx()
+        # Fill row 0 with reverse-video background
+        try:
+            self.stdscr.addnstr(0, 0, " " * (w - 1), w - 1, curses.A_REVERSE)
+        except curses.error:
+            pass
+
+        col = 1
+        for i, menu in enumerate(self.menu_bar.menus):
+            label = f" {menu.title} "
+            is_active = self.menu_bar.is_open and self.menu_bar.active_menu == i
+            attr = curses.A_BOLD if is_active else curses.A_REVERSE
+            try:
+                self.stdscr.addnstr(0, col, label, w - col - 1, attr)
+            except curses.error:
+                pass
+            col += len(label) + 1  # 1 gap
+        self.stdscr.noutrefresh()
+
+    def _draw_dropdown(self) -> None:
+        """Draw the currently open dropdown menu."""
+        if not self.menu_bar.is_open:
+            return
+        menu = self.menu_bar.menus[self.menu_bar.active_menu]
+        row, col = self.menu_bar.dropdown_position()
+        screen_h, screen_w = self.stdscr.getmaxyx()
+        w = menu.width()
+        h = len(menu.items) + 2  # +2 for borders
+
+        # Clamp to screen
+        if col + w > screen_w:
+            col = max(0, screen_w - w)
+        if row + h > screen_h:
+            h = max(3, screen_h - row)
+
+        try:
+            win = curses.newwin(h, w, row, col)
+        except curses.error:
+            return
+
+        win.erase()
+        try:
+            win.border()
+        except curses.error:
+            pass
+
+        for idx, item in enumerate(menu.items):
+            r = idx + 1  # +1 for top border
+            if r >= h - 1:
+                break
+            if item.item_type == MenuItemType.SEPARATOR:
+                # Horizontal line
+                try:
+                    win.addch(r, 0, curses.ACS_LTEE)
+                    win.addch(r, w - 1, curses.ACS_RTEE)
+                    for c in range(1, w - 1):
+                        win.addch(r, c, curses.ACS_HLINE)
+                except curses.error:
+                    pass
+                continue
+
+            is_highlighted = (
+                self.menu_bar.state in (MenuState.OPEN, MenuState.SUBMENU)
+                and idx == self.menu_bar.active_item
+            )
+            attr = curses.A_REVERSE if is_highlighted else 0
+            if not item.enabled:
+                attr = curses.A_DIM
+
+            # Build the display string
+            inner_w = w - 2  # borders
+            prefix = ""
+            suffix = ""
+            if item.item_type == MenuItemType.TOGGLE:
+                prefix = "[x] " if item.toggled else "[ ] "
+            if item.item_type == MenuItemType.CHOICE:
+                suffix = " >"
+            if item.hotkey:
+                suffix = "  " + item.hotkey
+
+            text = prefix + item.label
+            # Pad with spaces to fill width, then add suffix
+            pad = inner_w - len(text) - len(suffix)
+            if pad > 0:
+                text = text + " " * pad + suffix
+            else:
+                text = (text + suffix)[:inner_w]
+
+            try:
+                win.addnstr(r, 1, text, inner_w, attr)
+            except curses.error:
+                pass
+
+        win.noutrefresh()
+
+    def _draw_submenu(self) -> None:
+        """Draw the submenu for the currently selected CHOICE item."""
+        if self.menu_bar.state != MenuState.SUBMENU:
+            return
+        item = self.menu_bar._current_item()
+        if not item or not item.choices:
+            return
+
+        s_row, s_col = self.menu_bar.submenu_position()
+        screen_h, screen_w = self.stdscr.getmaxyx()
+        s_w = max(len(c.label) for c in item.choices) + 6
+        s_h = len(item.choices) + 2
+
+        # If submenu goes off right edge, place it to the left of the dropdown
+        if s_col + s_w > screen_w:
+            _, d_col = self.menu_bar.dropdown_position()
+            s_col = max(0, d_col - s_w)
+        if s_row + s_h > screen_h:
+            s_h = max(3, screen_h - s_row)
+
+        try:
+            win = curses.newwin(s_h, s_w, s_row, s_col)
+        except curses.error:
+            return
+
+        win.erase()
+        try:
+            win.border()
+        except curses.error:
+            pass
+
+        for idx, choice in enumerate(item.choices):
+            r = idx + 1
+            if r >= s_h - 1:
+                break
+            is_highlighted = idx == self.menu_bar.active_choice
+            attr = curses.A_REVERSE if is_highlighted else 0
+            marker = "* " if choice.selected else "  "
+            text = marker + choice.label
+            inner_w = s_w - 2
+            try:
+                win.addnstr(r, 1, text[:inner_w], inner_w, attr)
+            except curses.error:
+                pass
+
+        win.noutrefresh()
+
     def _draw_help_pager(self):
         """Draw the help pager overlay on the right side of the screen."""
         if not self.help_tracker.content:
@@ -866,14 +1195,14 @@ class MudUI:
         pager_w = max(self.HELP_MIN_WIDTH, int(screen_w * 0.50))
         pager_w = min(pager_w, screen_w - 4)  # Leave small margin on left
         pager_h = max(self.HELP_MIN_HEIGHT, screen_h - 4)
-        pager_h = min(pager_h, screen_h - 2)  # Leave room for input/status
+        pager_h = min(pager_h, screen_h - 3)  # Leave room for menu bar + input/status
 
         if pager_w < 20 or pager_h < 10:
             return
 
-        # Position on right side
+        # Position on right side, below menu bar
         pager_x = max(0, screen_w - pager_w)
-        pager_y = 0
+        pager_y = 1
 
         try:
             win = curses.newwin(pager_h, pager_w, pager_y, pager_x)
@@ -1050,6 +1379,9 @@ class MudUI:
     def draw(self):
         out_win, stats_win, map_win, ticker_win, input_win, status_win = self._layout()
 
+        # Menu bar is always drawn first (on stdscr row 0)
+        self._draw_menu_bar()
+
         if self._help_mode:
             self._draw_help(out_win, stats_win, map_win, ticker_win, input_win, status_win)
             curses.doupdate()
@@ -1086,6 +1418,10 @@ class MudUI:
         # Help pager overlay (draws on right side, can cover stats/map)
         if self._has_help():
             self._draw_help_pager()
+
+        # Menu dropdowns/submenus drawn last so they overlay everything
+        self._draw_dropdown()
+        self._draw_submenu()
 
         # Info ticker
         if ticker_win:
@@ -1170,6 +1506,8 @@ class MudUI:
             "  W/A/S/D      move north/west/south/east (empty input only)",
             "  Backspace    delete char before cursor",
             "  Delete       delete char at cursor",
+            "  Alt+F        open File menu",
+            "  Alt+S        open Settings menu",
             "  F1           toggle this help",
             "  Ctrl+C       quit",
             "",
@@ -1273,12 +1611,47 @@ class MudUI:
             self._help_mode = not self._help_mode
             return None, False
 
-        # Mouse scroll wheel
+        # Mouse events — handle menu bar clicks plus scroll wheel
         if ch == curses.KEY_MOUSE:
             try:
-                _, _, _, _, bstate = curses.getmouse()
+                _, mx, my, _, bstate = curses.getmouse()
             except curses.error:
                 return None, False
+
+            # Left click handling
+            is_click = bool(bstate & curses.BUTTON1_PRESSED) or bool(
+                bstate & curses.BUTTON1_CLICKED
+            )
+            if is_click:
+                # Click on menu bar (row 0)
+                if my == 0:
+                    idx = self.menu_bar.hit_test_bar(mx)
+                    if idx is not None:
+                        self.menu_bar.toggle_menu(idx)
+                    return None, False
+
+                # Click in submenu
+                if self.menu_bar.state == MenuState.SUBMENU:
+                    ci = self.menu_bar.hit_test_submenu(mx, my)
+                    if ci is not None:
+                        self.menu_bar.active_choice = ci
+                        self.menu_bar.select()
+                        return None, False
+
+                # Click in dropdown
+                if self.menu_bar.is_open:
+                    ii = self.menu_bar.hit_test_dropdown(mx, my)
+                    if ii is not None:
+                        self.menu_bar.active_item = ii
+                        self.menu_bar.select()
+                        return None, False
+
+                # Click outside menu — close it
+                if self.menu_bar.is_open:
+                    self.menu_bar.close()
+                    return None, False
+
+            # Scroll wheel (unchanged logic)
             if bstate & curses.BUTTON4_PRESSED:  # scroll up
                 if self.help_tracker.visible:
                     self.help_tracker.scroll_up(3)
@@ -1294,6 +1667,52 @@ class MudUI:
                     self._scroll_lines_down(3)
             return None, False
 
+        # ESC key: detect Alt+key vs plain ESC
+        if ch == 27:
+            self.stdscr.nodelay(True)
+            next_ch = self.stdscr.getch()
+            self.stdscr.nodelay(False)
+            if next_ch != -1:
+                # Alt+key detected
+                if 0 <= next_ch < 256:
+                    alt_char = chr(next_ch)
+                    if self.menu_bar.handle_alt_key(alt_char):
+                        return None, False
+                # Alt+key not consumed — fall through
+            else:
+                # Plain ESC
+                if self.menu_bar.is_open:
+                    self.menu_bar.close()
+                    return None, False
+                # Fall through to existing ESC handlers (help, conversation)
+                if self.help_tracker.visible:
+                    self.help_tracker.dismiss()
+                    return None, False
+                if self.conversation.visible:
+                    self.conversation.dismiss()
+                    return None, False
+                return None, False
+
+        # Menu keyboard navigation when open
+        if self.menu_bar.is_open:
+            if ch == curses.KEY_UP:
+                self.menu_bar.move_up()
+                return None, False
+            if ch == curses.KEY_DOWN:
+                self.menu_bar.move_down()
+                return None, False
+            if ch == curses.KEY_LEFT:
+                self.menu_bar.move_left()
+                return None, False
+            if ch == curses.KEY_RIGHT:
+                self.menu_bar.move_right()
+                return None, False
+            if ch in (curses.KEY_ENTER, 10, 13):
+                self.menu_bar.select()
+                return None, False
+            # Any other key closes menu and falls through
+            self.menu_bar.close()
+
         # Help pager captures paging keys when visible
         if self.help_tracker.visible:
             screen_h, _ = self.stdscr.getmaxyx()
@@ -1302,9 +1721,6 @@ class MudUI:
             visible_h = max(1, pager_h - 4)
             # Scroll by visible height minus 2 lines overlap for context
             scroll_amount = max(1, visible_h - 2)
-            if ch == 27:  # ESC - close help
-                self.help_tracker.dismiss()
-                return None, False
             if ch == curses.KEY_PPAGE:  # PgUp
                 self.help_tracker.scroll_up(scroll_amount)
                 return None, False
@@ -1320,10 +1736,6 @@ class MudUI:
             # Other keys (typing, Enter) pass through - user can send commands
 
         # Conversation overlay keys (before scroll/help guards)
-        if ch == 27:  # Escape
-            if self.conversation.visible:
-                self.conversation.dismiss()
-                return None, False
         if ch == curses.KEY_SRIGHT:  # Shift+Right
             if self.conversation.visible:
                 self.conversation.navigate_next()

@@ -16,7 +16,8 @@ A terminal-based MUD (Multi-User Dungeon) client with GMCP support, ANSI color r
 - **Scrollback** — Page Up/Down to scroll through history; configurable content visibility when scrolled up (conversations shown by default, help/maps/info hidden; toggle with `/history`)
 - **Command history** — Up/Down arrows with prefix filtering
 - **Line editing** — Left/Right arrows, Ctrl+A/E (home/end), Ctrl+Left/Right (word jump), Ctrl+W/U/K (kill word/to-start/to-end), Delete key
-- **Auto-login profiles** — store credentials in YAML profile files (`~/.mud-slop/profiles/<name>.yml`, `./profiles/<name>.yml`) and use `-p <name>` to log in automatically. 
+- **Auto-login profiles** — store credentials in YAML profile files (`~/.mud-slop/profiles/<name>.yml`, `./profiles/<name>.yml`) and use `-p <name>` to log in automatically.
+- **Menu bar** — mouse and keyboard (Alt+F, Alt+S) access to File and Settings menus. Switch configs and profiles at runtime, toggle color/debug/history settings, and change conversation overlay position — all without restarting the client.
 
 ## Requirements
 
@@ -213,13 +214,16 @@ Everything else typed at the prompt is sent to the server.
 | Shift+Right / Shift+Left | Navigate conversation entries |
 | Escape | Dismiss conversation overlay or help pager |
 | W / A / S / D | Move north/west/south/east (only when input is empty, after login) |
+| Alt+F | Open File menu |
+| Alt+S | Open Settings menu |
 | F1 | Toggle help overlay |
 | Ctrl+C | Quit |
 
 ### UI layout
 
-The UI has up to five regions:
+The UI has a menu bar at the top and up to five regions below:
 
+- **Menu bar** — File and Settings menus accessible via mouse click or Alt+F/Alt+S. Settings menu allows runtime config/profile switching, color/debug toggling, conversation position, and history visibility.
 - **Output pane** — main MUD text (filtered: speech, info, and map lines removed at scroll position 0)
 - **Stats pane** — GMCP vitals/status/attributes (appears automatically when GMCP data arrives, 24-char column on the right)
 - **Map pane** — fixed panel on the right side (below stats if both present) showing room name, coordinates, ASCII map, exits, and word-wrapped description (appears after login when map data is received)

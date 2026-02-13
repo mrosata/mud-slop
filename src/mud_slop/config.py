@@ -846,3 +846,64 @@ def create_profile(profile_name: str) -> Path:
 def get_default_config() -> Config:
     """Return a Config with all default values."""
     return Config()
+
+
+def list_configs() -> list[tuple[str, str]]:
+    """Scan available config files and return (display_name, config_name) tuples.
+
+    Search order (first found wins for deduplication):
+    1. $HOME/.mud-slop/configs/
+    2. ./configs/
+    3. Bundled package configs
+    """
+    seen: set[str] = set()
+    result: list[tuple[str, str]] = []
+
+    def _add_from_dir(directory: Path) -> None:
+        if not directory.is_dir():
+            return
+        for p in sorted(directory.iterdir()):
+            if p.suffix == ".yml" and p.is_file():
+                name = p.stem
+                if name not in seen:
+                    seen.add(name)
+                    result.append((name, name))
+
+    _add_from_dir(_get_user_data_dir() / "configs")
+    _add_from_dir(Path.cwd() / "configs")
+
+    # Bundled package configs
+    try:
+        config_dir = files("mud_slop.configs")
+        with as_file(config_dir) as pkg_dir:
+            _add_from_dir(Path(pkg_dir))
+    except (ModuleNotFoundError, FileNotFoundError, TypeError):
+        pass
+
+    return result
+
+
+def list_profiles() -> list[tuple[str, str]]:
+    """Scan available profile files and return (display_name, profile_name) tuples.
+
+    Search order (first found wins for deduplication):
+    1. $HOME/.mud-slop/profiles/
+    2. ./profiles/
+    """
+    seen: set[str] = set()
+    result: list[tuple[str, str]] = []
+
+    def _add_from_dir(directory: Path) -> None:
+        if not directory.is_dir():
+            return
+        for p in sorted(directory.iterdir()):
+            if p.suffix == ".yml" and p.is_file():
+                name = p.stem
+                if name not in seen:
+                    seen.add(name)
+                    result.append((name, name))
+
+    _add_from_dir(_get_user_data_dir() / "profiles")
+    _add_from_dir(Path.cwd() / "profiles")
+
+    return result

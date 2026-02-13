@@ -130,5 +130,11 @@ def main():
     check_for_updates()
 
     curses.wrapper(
-        run_client, config, color=not args.no_color, debug=args.debug, conv_pos=args.conv_pos
+        run_client,
+        config,
+        color=not args.no_color,
+        debug=args.debug,
+        conv_pos=args.conv_pos,
+        config_name=args.config,
+        profile_name=args.profile,
     )
