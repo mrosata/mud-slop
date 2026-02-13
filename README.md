@@ -188,6 +188,7 @@ The client sends the username after the server's initial prompt and sends the pa
 | `/clear` | Clear output pane (and conversation, map, ticker) |
 | `/debug` | Toggle debug logging on/off at runtime |
 | `/info` | Show timestamped info message history |
+| `/panel [map\|info\|next]` | Show or switch right panel mode |
 | `/history` | Show history visibility settings |
 | `/history <type> [on\|off]` | Toggle what shows when scrolled up (types: conversations, help, maps, info) |
 
@@ -223,7 +224,7 @@ Everything else typed at the prompt is sent to the server.
 
 The UI has a menu bar at the top and up to five regions below:
 
-- **Menu bar** — File and Settings menus accessible via mouse click or Alt+F/Alt+S. Settings menu allows runtime config/profile switching, color/debug toggling, conversation position, and history visibility.
+- **Menu bar** — File and Settings menus accessible via mouse click or Alt+F/Alt+S. A right-aligned panel toggle button switches between Map and Info views. Settings menu allows runtime config/profile switching, color/debug toggling, conversation position, and history visibility.
 - **Output pane** — main MUD text (filtered: speech, info, and map lines removed at scroll position 0)
 - **Stats pane** — GMCP vitals/status/attributes (appears automatically when GMCP data arrives, 24-char column on the right)
 - **Map pane** — fixed panel on the right side (below stats if both present) showing room name, coordinates, ASCII map, exits, and word-wrapped description (appears after login when map data is received)

@@ -118,6 +118,13 @@ class MudUI:
         self._help_mode = False
         self.echo_off = False  # True when server signals password mode (hide input)
 
+        # Right panel mode (extensible: "map", "info", ...)
+        self.RIGHT_PANEL_MODES = ["map", "info"]
+        self.right_panel_mode: str = "map"
+        self._info_panel_scroll: int = 0
+        self._panel_btn_range: tuple[int, int] = (0, 0)
+        self._right_panel_x: int = 0
+
         # Menu bar
         self._current_config_name: str = "default"
         self._current_profile_name: str | None = None
@@ -469,6 +476,14 @@ class MudUI:
     def _has_help(self) -> bool:
         return self.help_tracker.visible and self.help_tracker.content is not None
 
+    def _has_panel_content(self) -> bool:
+        """Check if the active right panel mode has content to display."""
+        if self.right_panel_mode == "map":
+            return self._has_map()
+        elif self.right_panel_mode == "info":
+            return bool(self.info_tracker.history)
+        return False
+
     # Stats panel height (compact layout: HP/Mana/Moves bars + status + 2-col attributes)
     STATS_HEIGHT = 12
 
@@ -480,39 +495,41 @@ class MudUI:
         bottom_rows = 2 + ticker_h
         usable_h = max(1, h - bottom_rows - menu_h)
 
-        # Right side panel: stats on top, map below (if both present)
+        # Right side panel: stats on top, content panel below (if both present)
         # Or just one if only one is present
         show_stats = self._has_stats()
-        show_map = self._has_map()
+        show_panel = self._has_panel_content()
 
-        # Determine right panel width: 30% of screen, capped at max
+        # Determine right panel width: ratio of screen, capped at max
         right_panel_w = 0
-        if show_stats or show_map:
+        if show_stats or show_panel:
             right_panel_w = min(int(w * self.RIGHT_PANEL_RATIO), self.RIGHT_PANEL_MAX_WIDTH)
 
         # Output pane: left side, full height (shifted down by menu_h)
         out_w = max(20, w - right_panel_w)
         out_win = curses.newwin(usable_h, out_w, menu_h, 0)
 
-        # Right panel layout: stats on top (if present), map below (if present)
+        # Right panel layout: stats on top (if present), content panel below (if present)
         stats_win = None
-        map_win = None
+        panel_win = None
+        self._right_panel_x = 0
 
         if right_panel_w > 0:
             right_x = out_w
+            self._right_panel_x = right_x
 
-            if show_stats and show_map:
-                # Split right panel: stats gets fixed height, map gets rest
+            if show_stats and show_panel:
+                # Split right panel: stats gets fixed height, panel gets rest
                 stats_h = min(self.STATS_HEIGHT, usable_h // 2)
-                map_h = usable_h - stats_h
+                panel_h = usable_h - stats_h
                 stats_win = curses.newwin(stats_h, right_panel_w, menu_h, right_x)
-                map_win = curses.newwin(map_h, right_panel_w, menu_h + stats_h, right_x)
+                panel_win = curses.newwin(panel_h, right_panel_w, menu_h + stats_h, right_x)
             elif show_stats:
                 # Only stats
                 stats_win = curses.newwin(usable_h, right_panel_w, menu_h, right_x)
-            elif show_map:
-                # Only map
-                map_win = curses.newwin(usable_h, right_panel_w, menu_h, right_x)
+            elif show_panel:
+                # Only content panel
+                panel_win = curses.newwin(usable_h, right_panel_w, menu_h, right_x)
 
         ticker_win = None
         if ticker_h:
@@ -520,7 +537,7 @@ class MudUI:
         input_win = curses.newwin(1, w, h - 2, 0)
         status_win = curses.newwin(1, w, h - 1, 0)
 
-        return out_win, stats_win, map_win, ticker_win, input_win, status_win
+        return out_win, stats_win, panel_win, ticker_win, input_win, status_win
 
     def _draw_scrolling_text(self, win, lines, scroll_offset: int = 0):
         win.erase()
@@ -1039,6 +1056,147 @@ class MudUI:
 
         win.noutrefresh()
 
+    def _draw_info_panel(self, win):
+        """Draw the info history panel: title, scrollable word-wrapped entries."""
+        if not win:
+            return
+        win.erase()
+
+        pane_h, pane_w = win.getmaxyx()
+
+        # Draw left border (vertical line)
+        for row in range(pane_h):
+            try:
+                win.addch(row, 0, curses.ACS_VLINE)
+            except curses.error:
+                pass
+
+        inner_w = pane_w - 2  # 1 for left border, 1 for right margin
+        row = 0
+
+        # Title
+        if row < pane_h:
+            try:
+                win.addnstr(row, 2, "Info Messages", inner_w, curses.A_BOLD)
+            except curses.error:
+                pass
+            row += 1
+
+        history = self.info_tracker.history
+        if not history:
+            if row < pane_h:
+                try:
+                    win.addnstr(row, 2, "(no messages)", inner_w, curses.A_DIM)
+                except curses.error:
+                    pass
+            win.noutrefresh()
+            return
+
+        # Pre-wrap all entries into visual lines for scroll calculation.
+        # Each visual line is (raw_line_or_plain, has_ansi).
+        wrapped_lines: list[tuple[str, bool]] = []
+        for entry in history:
+            plain = strip_ansi(entry.raw_line) if entry.raw_line else entry.text
+            if len(plain) <= inner_w:
+                # Fits on one line
+                wrapped_lines.append((entry.raw_line if entry.raw_line else entry.text, True))
+            else:
+                if self.color_enabled and entry.raw_line:
+                    # Use colored wrapping via _draw_wrapped_colored later;
+                    # store raw line and mark it for multi-line rendering
+                    wrapped_lines.append((entry.raw_line, True))
+                else:
+                    for wline in _wrap_text(plain, inner_w):
+                        wrapped_lines.append((wline, False))
+
+        # Entry count / scroll indicator
+        if row < pane_h:
+            total = len(history)
+            if self._info_panel_scroll > 0:
+                indicator = f"{total} messages (+{self._info_panel_scroll})"
+            else:
+                indicator = f"{total} messages"
+            try:
+                win.addnstr(row, 2, indicator, inner_w, curses.A_DIM)
+            except curses.error:
+                pass
+            row += 1
+
+        # Blank line
+        row += 1
+
+        # Available rows for content
+        avail = pane_h - row
+        if avail <= 0:
+            win.noutrefresh()
+            return
+
+        # For colored entries that need wrapping, we need to count how many
+        # visual rows they'll actually use. Re-build a flat list of visual rows.
+        visual_rows: list[tuple[str, bool]] = []
+        for raw, has_ansi in wrapped_lines:
+            if has_ansi and self.color_enabled:
+                plain = strip_ansi(raw)
+                if len(plain) > inner_w:
+                    # Will be multi-line; count rows via wrap
+                    n_lines = len(_wrap_text(plain, inner_w))
+                    # Store as a "block" marker — rendered via _draw_wrapped_colored
+                    visual_rows.append((raw, True))
+                    # Add placeholder rows for the extra lines
+                    for _ in range(n_lines - 1):
+                        visual_rows.append(("", False))  # continuation placeholder
+                else:
+                    visual_rows.append((raw, True))
+            else:
+                visual_rows.append((raw, False))
+
+        total_visual = len(visual_rows)
+
+        # Clamp scroll (scroll is in visual lines)
+        max_scroll = max(0, total_visual - avail)
+        if self._info_panel_scroll > max_scroll:
+            self._info_panel_scroll = max_scroll
+
+        # Determine visible window: newest at bottom, scroll moves up
+        end = total_visual - self._info_panel_scroll
+        start = max(0, end - avail)
+
+        # Render visible visual rows
+        i = start
+        while i < end and row < pane_h:
+            raw, has_ansi = visual_rows[i]
+            if raw == "" and not has_ansi:
+                # Continuation placeholder — skip (already drawn by block)
+                i += 1
+                continue
+            if has_ansi and self.color_enabled:
+                plain = strip_ansi(raw)
+                if len(plain) > inner_w:
+                    rows_used = self._draw_wrapped_colored(win, raw, row, 2, inner_w, pane_h)
+                    row += rows_used
+                else:
+                    segments, _ = parse_ansi(raw)
+                    col = 2
+                    for text, attr in segments:
+                        remaining = inner_w - (col - 2)
+                        if remaining <= 0:
+                            break
+                        try:
+                            win.addnstr(row, col, text, remaining, attr)
+                        except curses.error:
+                            pass
+                        col += min(len(text), remaining)
+                    row += 1
+            else:
+                try:
+                    win.addnstr(row, 2, raw, inner_w)
+                except curses.error:
+                    pass
+                row += 1
+            i += 1
+
+        win.noutrefresh()
+
     def _draw_menu_bar(self) -> None:
         """Draw the menu bar on row 0 of stdscr."""
         _, w = self.stdscr.getmaxyx()
@@ -1058,6 +1216,19 @@ class MudUI:
             except curses.error:
                 pass
             col += len(label) + 1  # 1 gap
+
+        # Right-aligned panel mode button
+        btn_label = f"[ {self.right_panel_mode.capitalize()} ]"
+        btn_col = w - len(btn_label) - 1
+        if btn_col > col:
+            try:
+                self.stdscr.addnstr(0, btn_col, btn_label, len(btn_label), curses.A_REVERSE)
+            except curses.error:
+                pass
+            self._panel_btn_range = (btn_col, btn_col + len(btn_label))
+        else:
+            self._panel_btn_range = (0, 0)
+
         self.stdscr.noutrefresh()
 
     def _draw_dropdown(self) -> None:
@@ -1377,13 +1548,13 @@ class MudUI:
         win.noutrefresh()
 
     def draw(self):
-        out_win, stats_win, map_win, ticker_win, input_win, status_win = self._layout()
+        out_win, stats_win, panel_win, ticker_win, input_win, status_win = self._layout()
 
         # Menu bar is always drawn first (on stdscr row 0)
         self._draw_menu_bar()
 
         if self._help_mode:
-            self._draw_help(out_win, stats_win, map_win, ticker_win, input_win, status_win)
+            self._draw_help(out_win, stats_win, panel_win, ticker_win, input_win, status_win)
             curses.doupdate()
             return
 
@@ -1410,12 +1581,15 @@ class MudUI:
         # Draw conversation overlay on top of the output pane
         self._draw_conversation_overlay(out_win)
 
-        # Map pane (dedicated window, drawn after output so it paints on top)
-        self._draw_map_pane(map_win)
+        # Right panel: route to map or info based on mode
+        if self.right_panel_mode == "info":
+            self._draw_info_panel(panel_win)
+        else:
+            self._draw_map_pane(panel_win)
 
         self._draw_stats(stats_win)
 
-        # Help pager overlay (draws on right side, can cover stats/map)
+        # Help pager overlay (draws on right side, can cover stats/panel)
         if self._has_help():
             self._draw_help_pager()
 
@@ -1463,6 +1637,8 @@ class MudUI:
             status_text += " | HELP" + (f" +{offset}" if offset > 0 else "")
         if self.conversation.visible:
             status_text += f" | CONV {self.conversation.queue_status}"
+        if self.right_panel_mode == "info" and self.info_tracker.history:
+            status_text += " | INFO PANEL"
         if self._output_scroll > 0:
             status_text += f" | SCROLL +{self._output_scroll}"
         elif self._show_full_history:
@@ -1482,7 +1658,7 @@ class MudUI:
 
         curses.doupdate()
 
-    def _draw_help(self, out_win, stats_win, map_win, ticker_win, input_win, status_win):
+    def _draw_help(self, out_win, stats_win, panel_win, ticker_win, input_win, status_win):
         help_text = [
             "Help",
             "",
@@ -1516,6 +1692,7 @@ class MudUI:
             "  /clear       clear output pane",
             "  /debug       toggle debug logging to mud_*.log",
             "  /info        show info message history",
+            "  /panel       show/switch right panel mode (map, info)",
             "  /history     show history visibility settings",
             "  /history <type> [on|off]  toggle what shows when scrolled up",
             "               types: conversations, help, maps, info",
@@ -1545,7 +1722,10 @@ class MudUI:
         out_win.noutrefresh()
 
         self._draw_stats(stats_win)
-        self._draw_map_pane(map_win)
+        if self.right_panel_mode == "info":
+            self._draw_info_panel(panel_win)
+        else:
+            self._draw_map_pane(panel_win)
         if ticker_win:
             self._draw_ticker(ticker_win)
 
@@ -1602,6 +1782,12 @@ class MudUI:
         self._output_scroll = 0
         self._show_full_history = False
 
+    def _cycle_panel_mode(self):
+        """Cycle to the next right panel mode."""
+        idx = self.RIGHT_PANEL_MODES.index(self.right_panel_mode)
+        self.right_panel_mode = self.RIGHT_PANEL_MODES[(idx + 1) % len(self.RIGHT_PANEL_MODES)]
+        self._info_panel_scroll = 0
+
     def handle_key(self, ch: int):
         # Returns (line_to_send or None, quit_bool)
         if ch == -1:
@@ -1625,6 +1811,11 @@ class MudUI:
             if is_click:
                 # Click on menu bar (row 0)
                 if my == 0:
+                    # Check panel toggle button first (right-aligned)
+                    btn_start, btn_end = self._panel_btn_range
+                    if btn_start < btn_end and btn_start <= mx < btn_end:
+                        self._cycle_panel_mode()
+                        return None, False
                     idx = self.menu_bar.hit_test_bar(mx)
                     if idx is not None:
                         self.menu_bar.toggle_menu(idx)
@@ -1651,10 +1842,18 @@ class MudUI:
                     self.menu_bar.close()
                     return None, False
 
-            # Scroll wheel (unchanged logic)
+            # Scroll wheel — route to info panel if mouse is over right panel in info mode
+            _over_info_panel = (
+                self.right_panel_mode == "info"
+                and self._right_panel_x > 0
+                and mx >= self._right_panel_x
+                and self.info_tracker.history
+            )
             if bstate & curses.BUTTON4_PRESSED:  # scroll up
                 if self.help_tracker.visible:
                     self.help_tracker.scroll_up(3)
+                elif _over_info_panel:
+                    self._info_panel_scroll += 3
                 else:
                     self._scroll_lines_up(3)
             elif bstate & self._BUTTON5_PRESSED:  # scroll down
@@ -1663,6 +1862,8 @@ class MudUI:
                     pager_h = min(max(self.HELP_MIN_HEIGHT, screen_h - 4), screen_h - 2)
                     visible_h = max(1, pager_h - 4)
                     self.help_tracker.scroll_down(3, visible_h)
+                elif _over_info_panel:
+                    self._info_panel_scroll = max(0, self._info_panel_scroll - 3)
                 else:
                     self._scroll_lines_down(3)
             return None, False
@@ -1894,6 +2095,7 @@ class MudUI:
         self._incomplete_line = ""
         self._output_scroll = 0
         self._show_full_history = False
+        self._info_panel_scroll = 0
         self._skip_next_blank = False
         self._skip_blank_after_speech = False
         self._skip_next_blank_h = False

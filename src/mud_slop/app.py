@@ -23,7 +23,28 @@ _HISTORY_TYPES = {
 }
 
 
-def _handle_history_cmd(ui: "MudUI", line: str):
+def _handle_panel_cmd(ui: MudUI, line: str):
+    """Handle /panel command for viewing/switching right panel mode."""
+    parts = line.split()
+    # /panel — show current mode
+    if len(parts) == 1:
+        ui.add_system_message(f"Right panel mode: {ui.right_panel_mode}")
+        return
+    arg = parts[1].lower()
+    if arg == "next":
+        ui._cycle_panel_mode()
+        ui.add_system_message(f"Right panel mode: {ui.right_panel_mode}")
+        return
+    if arg in ui.RIGHT_PANEL_MODES:
+        ui.right_panel_mode = arg
+        ui._info_panel_scroll = 0
+        ui.add_system_message(f"Right panel mode: {arg}")
+        return
+    valid = ", ".join(ui.RIGHT_PANEL_MODES)
+    ui.add_system_message(f"Unknown panel '{parts[1]}'. Valid: {valid}, next")
+
+
+def _handle_history_cmd(ui: MudUI, line: str):
     """Handle /history command for viewing/toggling history visibility."""
     parts = line.split()
     # /history — show current settings
@@ -282,6 +303,8 @@ def run_client(
                     ui.clear()
                 elif line.strip().lower() == "/info":
                     ui.show_info_history()
+                elif line.strip().lower().startswith("/panel"):
+                    _handle_panel_cmd(ui, line.strip())
                 elif line.strip().lower().startswith("/history"):
                     _handle_history_cmd(ui, line.strip())
                     ui._sync_menu_toggles()
