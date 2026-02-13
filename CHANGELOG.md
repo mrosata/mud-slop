@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.8...mud-slop-v0.1.9) (2026-02-13)
+
+
+### Features
+
+* add menu bar with dropdowns for runtime settings ([0e4ce55](https://github.com/mrosata/mud-slop/commit/0e4ce553ff958eab1fefc0c0427a320a4cc75d28))
+* add switchable right panel with map/info modes ([b393447](https://github.com/mrosata/mud-slop/commit/b393447d3849dbc48fffaf92a212d512484afe33))
+
 ## [0.1.8](https://github.com/mrosata/mud-slop/compare/mud-slop-v0.1.7...mud-slop-v0.1.8) (2026-02-11)
 
 

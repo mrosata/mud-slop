@@ -1,6 +1,6 @@
 [project]
 name = "mud-slop"
-version = "0.1.8"
+version = "0.1.9"
 description = "A terminal-based MUD client with GMCP support, ANSI colors, and protocol inspection"
 readme = "README.md"
 requires-python = ">=3.9"
